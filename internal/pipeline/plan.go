@@ -131,12 +131,11 @@ func (e *Executor) executePlan(ctx context.Context, work scanner.PendingWork, is
 		}
 		e.logger.Infof("plan for %s#%d has questions — waiting for human input", work.Project.Repo, work.Issue.Number)
 	} else {
-		// Transition to approve
+		// Transition to approve — next run will execute the approve phase
 		if err := e.state.TransitionPhase(issueState.ID, state.PhasePlan, state.PhaseApprove, "plan complete"); err != nil {
 			return fmt.Errorf("transition to approve: %w", err)
 		}
-		// Immediately execute approve phase
-		return e.executeApprove(ctx, work, issueState)
+		e.logger.Infof("plan complete for %s#%d — awaiting approval next run", work.Project.Repo, work.Issue.Number)
 	}
 
 	return nil

@@ -123,6 +123,16 @@ func (s *Scanner) determineWork(ghIssue gh.Issue, localIssue *state.IssueState, 
 			Reason:     "pending_issue",
 		}
 
+	case state.PhasePlan:
+		// Previous phase (research) completed and transitioned here — run plan
+		return &PendingWork{
+			Issue:      ghIssue,
+			Project:    project,
+			IssueState: localIssue,
+			NextPhase:  state.PhasePlan,
+			Reason:     "research_complete",
+		}
+
 	case state.PhaseClarify:
 		// Check if human has replied since our last comment
 		latestComment, _ := s.state.GetLatestDayshiftComment(localIssue.ID)
@@ -149,6 +159,16 @@ func (s *Scanner) determineWork(ghIssue gh.Issue, localIssue *state.IssueState, 
 				NextPhase:  state.PhaseImplement,
 				Reason:     "approved",
 			}
+		}
+
+	case state.PhaseImplement:
+		// Implementation was completed and transitioned here — run validate
+		return &PendingWork{
+			Issue:      ghIssue,
+			Project:    project,
+			IssueState: localIssue,
+			NextPhase:  state.PhaseValidate,
+			Reason:     "implementation_complete",
 		}
 
 	case state.PhaseError:
