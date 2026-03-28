@@ -137,27 +137,20 @@ func (s *Scanner) determineWork(ctx context.Context, ghIssue gh.Issue, localIssu
 
 	case state.PhaseClarify:
 		// Check GitHub for human replies — either a new comment or checked boxes
+		// Questions come from plan phase, so clarify always routes back to plan
 		if s.github != nil {
 			ghComments, err := s.github.GetComments(ctx, project.Repo, ghIssue.Number)
 			if err == nil && len(ghComments) > 0 {
 				// Find the last comment with questions marker
 				lastQuestionsIdx := -1
-				questionsInResearch := false
 				for i, c := range ghComments {
 					if comments.HasMarker(c.Body, comments.MarkerQuestions) {
 						lastQuestionsIdx = i
-						questionsInResearch = comments.HasMarker(c.Body, comments.MarkerResearch)
 					}
 				}
 
 				if lastQuestionsIdx < 0 {
 					break
-				}
-
-				// Determine next phase: research questions → plan, plan questions → approve
-				nextPhase := state.PhaseApprove
-				if questionsInResearch {
-					nextPhase = state.PhasePlan
 				}
 
 				// Check 1: New comment after the questions comment
@@ -166,7 +159,7 @@ func (s *Scanner) determineWork(ctx context.Context, ghIssue gh.Issue, localIssu
 						Issue:      ghIssue,
 						Project:    project,
 						IssueState: localIssue,
-						NextPhase:  nextPhase,
+						NextPhase:  state.PhasePlan,
 						Reason:     "human_replied",
 					}
 				}
@@ -178,7 +171,7 @@ func (s *Scanner) determineWork(ctx context.Context, ghIssue gh.Issue, localIssu
 						Issue:      ghIssue,
 						Project:    project,
 						IssueState: localIssue,
-						NextPhase:  nextPhase,
+						NextPhase:  state.PhasePlan,
 						Reason:     "questions_answered",
 					}
 				}
