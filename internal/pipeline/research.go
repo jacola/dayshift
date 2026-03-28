@@ -66,17 +66,21 @@ func (e *Executor) executeResearch(ctx context.Context, work scanner.PendingWork
 		return fmt.Errorf("research agent failed: %s", result.Error)
 	}
 
+	// Strip agent "thinking" preamble — keep only the research document.
+	// Look for the first markdown heading or horizontal rule as the document start.
+	output := cleanAgentOutput(result.Output)
+
 	// Post research as comment
 	commentBody := comments.WrapWithMarker(
 		comments.MarkerResearch, comments.MarkerResearchEnd,
-		result.Output,
+		output,
 	)
 	if err := e.github.PostComment(ctx, work.Project.Repo, work.Issue.Number, commentBody); err != nil {
 		return fmt.Errorf("post research comment: %w", err)
 	}
 
 	// Record comment
-	e.state.RecordComment(issueState.ID, state.PhaseResearch, 0, result.Output, "dayshift")
+	e.state.RecordComment(issueState.ID, state.PhaseResearch, 0, output, "dayshift")
 
 	// Add label and transition
 	e.github.AddLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:researched")

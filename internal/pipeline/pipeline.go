@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/marcus/dayshift/internal/agents"
 	"github.com/marcus/dayshift/internal/config"
@@ -102,4 +103,20 @@ func extractPRURL(text string) string {
 		return ""
 	}
 	return matches[len(matches)-1]
+}
+
+// cleanAgentOutput strips agent "thinking out loud" preamble from output.
+// Agents often emit status messages before the actual document. We find
+// the first markdown heading (# ...) or horizontal rule (---) and discard
+// everything before it.
+func cleanAgentOutput(output string) string {
+	lines := strings.Split(output, "\n")
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "# ") || (trimmed == "---" && i < len(lines)-1) {
+			return strings.Join(lines[i:], "\n")
+		}
+	}
+	// No heading found — return as-is
+	return output
 }
