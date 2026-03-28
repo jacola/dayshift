@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 	"time"
@@ -42,7 +43,7 @@ func TestScanNewIssue(t *testing.T) {
 		CreatedAt: time.Now(),
 	}
 
-	pending := scanner.determineWork(issue, nil, cfg.Projects[0])
+	pending := scanner.determineWork(context.Background(), issue, nil, cfg.Projects[0])
 	if pending == nil {
 		t.Fatal("expected pending work for new issue")
 	}
@@ -70,7 +71,7 @@ func TestScanPendingIssue(t *testing.T) {
 	scanner := New(nil, mgr, cfg)
 	issue := gh.Issue{Number: 1, Title: "Test"}
 
-	pending := scanner.determineWork(issue, localIssue, cfg.Projects[0])
+	pending := scanner.determineWork(context.Background(), issue, localIssue, cfg.Projects[0])
 	if pending == nil {
 		t.Fatal("expected pending work")
 	}
@@ -101,7 +102,7 @@ func TestScanApprovedIssue(t *testing.T) {
 		Labels: []gh.GHLabel{{Name: "dayshift"}, {Name: "dayshift:approved"}},
 	}
 
-	pending := scanner.determineWork(issue, localIssue, cfg.Projects[0])
+	pending := scanner.determineWork(context.Background(), issue, localIssue, cfg.Projects[0])
 	if pending == nil {
 		t.Fatal("expected pending work for approved issue")
 	}
@@ -132,7 +133,7 @@ func TestScanSkipsPaused(t *testing.T) {
 
 	// scanProject filters paused, but we test determineWork with a local issue
 	localIssue := &state.IssueState{Phase: state.PhasePaused}
-	pending := scanner.determineWork(issue, localIssue, cfg.Projects[0])
+	pending := scanner.determineWork(context.Background(), issue, localIssue, cfg.Projects[0])
 	if pending != nil {
 		t.Error("expected no work for paused issue")
 	}

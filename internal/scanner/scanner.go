@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/marcus/dayshift/internal/comments"
 	"github.com/marcus/dayshift/internal/config"
 	gh "github.com/marcus/dayshift/internal/github"
 	"github.com/marcus/dayshift/internal/logging"
@@ -93,7 +94,7 @@ func (s *Scanner) scanProject(ctx context.Context, project config.ProjectConfig,
 			continue
 		}
 
-		pending := s.determineWork(ghIssue, localIssue, project)
+		pending := s.determineWork(ctx, ghIssue, localIssue, project)
 		if pending != nil {
 			work = append(work, *pending)
 		}
@@ -102,7 +103,7 @@ func (s *Scanner) scanProject(ctx context.Context, project config.ProjectConfig,
 	return work, nil
 }
 
-func (s *Scanner) determineWork(ghIssue gh.Issue, localIssue *state.IssueState, project config.ProjectConfig) *PendingWork {
+func (s *Scanner) determineWork(ctx context.Context, ghIssue gh.Issue, localIssue *state.IssueState, project config.ProjectConfig) *PendingWork {
 	// New issue — not yet tracked
 	if localIssue == nil {
 		return &PendingWork{
@@ -134,17 +135,28 @@ func (s *Scanner) determineWork(ghIssue gh.Issue, localIssue *state.IssueState, 
 		}
 
 	case state.PhaseClarify:
-		// Check if human has replied since our last comment
-		latestComment, _ := s.state.GetLatestDayshiftComment(localIssue.ID)
-		if latestComment != nil {
-			humanComments, _ := s.state.GetHumanCommentsSince(localIssue.ID, latestComment.CreatedAt)
-			if len(humanComments) > 0 {
-				return &PendingWork{
-					Issue:      ghIssue,
-					Project:    project,
-					IssueState: localIssue,
-					NextPhase:  state.PhasePlan,
-					Reason:     "human_replied",
+		// Check GitHub for human replies since our last dayshift comment
+		if s.github != nil {
+			ghComments, err := s.github.GetComments(ctx, project.Repo, ghIssue.Number)
+			if err == nil && len(ghComments) > 0 {
+				// Find the last dayshift comment (has our markers)
+				lastDayshiftIdx := -1
+				for i, c := range ghComments {
+					if comments.HasMarker(c.Body, comments.MarkerPlan) ||
+						comments.HasMarker(c.Body, comments.MarkerQuestions) ||
+						comments.HasMarker(c.Body, comments.MarkerResearch) {
+						lastDayshiftIdx = i
+					}
+				}
+				// Any comment after the last dayshift comment is a human reply
+				if lastDayshiftIdx >= 0 && lastDayshiftIdx < len(ghComments)-1 {
+					return &PendingWork{
+						Issue:      ghIssue,
+						Project:    project,
+						IssueState: localIssue,
+						NextPhase:  state.PhasePlan,
+						Reason:     "human_replied",
+					}
 				}
 			}
 		}
