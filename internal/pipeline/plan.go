@@ -133,16 +133,16 @@ func (e *Executor) executePlan(ctx context.Context, work scanner.PendingWork, is
 	// Check for questions
 	hasQuestions := comments.HasMarker(result.Output, comments.MarkerQuestions)
 
-	e.github.AddLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:planned")
-
 	if hasQuestions {
-		// Transition to clarify
+		// Needs human input — do NOT mark as planned
 		e.github.AddLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:needs-input")
 		if err := e.state.TransitionPhase(issueState.ID, state.PhasePlan, state.PhaseClarify, "questions for human"); err != nil {
 			return fmt.Errorf("transition to clarify: %w", err)
 		}
 		e.logger.Infof("plan for %s#%d has questions — waiting for human input", work.Project.Repo, work.Issue.Number)
 	} else {
+		// Plan is complete — mark as planned
+		e.github.AddLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:planned")
 		// Transition to approve — next run will execute the approve phase
 		if err := e.state.TransitionPhase(issueState.ID, state.PhasePlan, state.PhaseApprove, "plan complete"); err != nil {
 			return fmt.Errorf("transition to approve: %w", err)
