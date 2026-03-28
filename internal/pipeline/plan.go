@@ -38,8 +38,8 @@ The maintainer has answered the decision questions. Their selected options (mark
 
 %s
 
-IMPORTANT: Incorporate these decisions into the final plan. Do NOT ask new questions.
-Do NOT include a Questions section. The plan should be ready for implementation.`, humanAnswers)
+IMPORTANT: Incorporate these decisions into the final plan. Avoid asking new questions
+unless genuinely new decisions emerged from the answers. The goal is a plan ready for implementation.`, humanAnswers)
 	}
 
 	prompt += `
