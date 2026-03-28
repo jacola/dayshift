@@ -84,16 +84,16 @@ func TestBuildResearchPrompt(t *testing.T) {
 
 func TestBuildPlanPrompt(t *testing.T) {
 	work := createTestWork()
-	prompt := buildPlanPrompt(work, "Research findings here", "")
+	prompt := buildPlanPrompt(work, "Research findings here", "", "")
 
 	if !containsAll(prompt, "Test issue", "Research findings here", "dayshift:questions") {
 		t.Error("prompt missing expected content")
 	}
 
-	// With human answers
-	prompt = buildPlanPrompt(work, "Research", "1: Use PostgreSQL")
-	if !containsAll(prompt, "Human Answers", "1: Use PostgreSQL") {
-		t.Error("prompt missing human answers")
+	// With existing plan and human answers
+	prompt = buildPlanPrompt(work, "Research", "Existing plan here", "1: Use PostgreSQL")
+	if !containsAll(prompt, "Existing Plan", "Existing plan here", "Human Answers", "1: Use PostgreSQL") {
+		t.Error("prompt missing existing plan or human answers")
 	}
 }
 

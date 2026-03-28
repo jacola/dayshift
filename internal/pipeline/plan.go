@@ -10,7 +10,7 @@ import (
 	"github.com/marcus/dayshift/internal/state"
 )
 
-func buildPlanPrompt(issue scanner.PendingWork, research string, humanAnswers string) string {
+func buildPlanPrompt(issue scanner.PendingWork, research string, existingPlan string, humanAnswers string) string {
 	prompt := fmt.Sprintf(`You are a planning agent. Create a detailed implementation plan for this GitHub issue.
 
 ## Issue
@@ -30,6 +30,13 @@ Repository: %s
 		research,
 	)
 
+	if existingPlan != "" {
+		prompt += fmt.Sprintf(`
+
+## Existing Plan (update this, do not start from scratch)
+%s`, existingPlan)
+	}
+
 	if humanAnswers != "" {
 		prompt += fmt.Sprintf(`
 
@@ -38,7 +45,7 @@ The maintainer has answered the decision questions. Their selected options (mark
 
 %s
 
-IMPORTANT: Incorporate these decisions into the final plan. Avoid asking new questions
+IMPORTANT: Update the existing plan to incorporate these decisions. Avoid asking new questions
 unless genuinely new decisions emerged from the answers. The goal is a plan ready for implementation.`, humanAnswers)
 	}
 
@@ -101,6 +108,12 @@ func (e *Executor) executePlan(ctx context.Context, work scanner.PendingWork, is
 	// Gather research from issue comments
 	research := e.getResearchFromComments(ctx, work)
 
+	// Get existing plan if one exists (so we update rather than start from scratch)
+	existingPlan := e.getPlanFromComments(ctx, work)
+	if existingPlan == "(no plan found)" || existingPlan == "(plan not available)" {
+		existingPlan = ""
+	}
+
 	// Gather human answers — get the existing plan comment with checked boxes
 	humanAnswers := ""
 	if work.Reason == "human_replied" || work.Reason == "questions_answered" {
@@ -108,7 +121,7 @@ func (e *Executor) executePlan(ctx context.Context, work scanner.PendingWork, is
 	}
 
 	// Build and execute prompt
-	prompt := buildPlanPrompt(work, research, humanAnswers)
+	prompt := buildPlanPrompt(work, research, existingPlan, humanAnswers)
 	result, err := e.agent.Execute(ctx, agents.ExecuteOptions{
 		Prompt:  prompt,
 		WorkDir: work.Project.Path,
@@ -128,10 +141,10 @@ func (e *Executor) executePlan(ctx context.Context, work scanner.PendingWork, is
 		cleanAgentOutput(result.Output),
 	)
 
-	existingPlan, _ := e.github.FindCommentByMarker(ctx, work.Project.Repo, work.Issue.Number, comments.MarkerPlan)
-	if existingPlan != nil && existingPlan.DatabaseID > 0 {
+	existingPlanComment, _ := e.github.FindCommentByMarker(ctx, work.Project.Repo, work.Issue.Number, comments.MarkerPlan)
+	if existingPlanComment != nil && existingPlanComment.DatabaseID > 0 {
 		// Edit existing plan comment in place
-		if err := e.github.EditComment(ctx, work.Project.Repo, existingPlan.DatabaseID, commentBody); err != nil {
+		if err := e.github.EditComment(ctx, work.Project.Repo, existingPlanComment.DatabaseID, commentBody); err != nil {
 			return fmt.Errorf("edit plan comment: %w", err)
 		}
 	} else {
