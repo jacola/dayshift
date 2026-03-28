@@ -51,7 +51,7 @@ func (i *Issue) HasLabel(name string) bool {
 
 // Comment represents a GitHub issue comment.
 type Comment struct {
-	ID        int       `json:"id"`
+	ID        string    `json:"id"`
 	Body      string    `json:"body"`
 	Author    GHAuthor  `json:"author"`
 	CreatedAt time.Time `json:"createdAt"`
