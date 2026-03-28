@@ -117,13 +117,23 @@ func (e *Executor) executePlan(ctx context.Context, work scanner.PendingWork, is
 		return fmt.Errorf("plan agent failed: %s", result.Error)
 	}
 
-	// Post plan as comment
+	// Post or update the plan comment (edit in place if one already exists)
 	commentBody := comments.WrapWithMarker(
 		comments.MarkerPlan, comments.MarkerPlanEnd,
-		result.Output,
+		cleanAgentOutput(result.Output),
 	)
-	if err := e.github.PostComment(ctx, work.Project.Repo, work.Issue.Number, commentBody); err != nil {
-		return fmt.Errorf("post plan comment: %w", err)
+
+	existingPlan, _ := e.github.FindCommentByMarker(ctx, work.Project.Repo, work.Issue.Number, comments.MarkerPlan)
+	if existingPlan != nil && existingPlan.DatabaseID > 0 {
+		// Edit existing plan comment in place
+		if err := e.github.EditComment(ctx, work.Project.Repo, existingPlan.DatabaseID, commentBody); err != nil {
+			return fmt.Errorf("edit plan comment: %w", err)
+		}
+	} else {
+		// First plan — post new comment
+		if err := e.github.PostComment(ctx, work.Project.Repo, work.Issue.Number, commentBody); err != nil {
+			return fmt.Errorf("post plan comment: %w", err)
+		}
 	}
 
 	// Record comment and store plan data

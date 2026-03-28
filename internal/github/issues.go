@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -51,10 +52,11 @@ func (i *Issue) HasLabel(name string) bool {
 
 // Comment represents a GitHub issue comment.
 type Comment struct {
-	ID        string    `json:"id"`
-	Body      string    `json:"body"`
-	Author    GHAuthor  `json:"author"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID         string    `json:"id"`
+	DatabaseID int       `json:"databaseId"`
+	Body       string    `json:"body"`
+	Author     GHAuthor  `json:"author"`
+	CreatedAt  time.Time `json:"createdAt"`
 }
 
 // ListIssues lists open issues with a specific label.
@@ -124,7 +126,65 @@ func (c *Client) GetComments(ctx context.Context, repo string, number int) ([]Co
 	if err := json.Unmarshal([]byte(stdout), &comments); err != nil {
 		return nil, fmt.Errorf("parse comments for #%d: %w", number, err)
 	}
+
+	// gh issue view doesn't return databaseId, so fetch via API if needed
+	if len(comments) > 0 && comments[0].DatabaseID == 0 {
+		apiComments, err := c.getCommentsViaAPI(ctx, repo, number)
+		if err == nil {
+			// Match by position (both return in chronological order)
+			for i := range comments {
+				if i < len(apiComments) {
+					comments[i].DatabaseID = apiComments[i].DatabaseID
+				}
+			}
+		}
+	}
+
 	return comments, nil
+}
+
+// getCommentsViaAPI fetches comments with numeric IDs via REST API.
+func (c *Client) getCommentsViaAPI(ctx context.Context, repo string, number int) ([]Comment, error) {
+	stdout, err := c.gh(ctx, repo,
+		"api", fmt.Sprintf("/repos/%s/issues/%d/comments", repo, number),
+		"--jq", "[.[] | {databaseId: .id, body: .body, author: {login: .user.login}, createdAt: .created_at}]",
+	)
+	if err != nil {
+		return nil, err
+	}
+	var comments []Comment
+	if err := json.Unmarshal([]byte(stdout), &comments); err != nil {
+		return nil, err
+	}
+	return comments, nil
+}
+
+// EditComment updates an existing comment by its numeric database ID.
+func (c *Client) EditComment(ctx context.Context, repo string, commentDatabaseID int, body string) error {
+	_, err := c.gh(ctx, repo,
+		"api", "--method", "PATCH",
+		fmt.Sprintf("/repos/%s/issues/comments/%d", repo, commentDatabaseID),
+		"-f", "body="+body,
+	)
+	if err != nil {
+		return fmt.Errorf("edit comment %d: %w", commentDatabaseID, err)
+	}
+	return nil
+}
+
+// FindCommentByMarker finds a comment containing a specific marker and returns it.
+func (c *Client) FindCommentByMarker(ctx context.Context, repo string, number int, marker string) (*Comment, error) {
+	ghComments, err := c.GetComments(ctx, repo, number)
+	if err != nil {
+		return nil, err
+	}
+	// Return the last matching comment
+	for i := len(ghComments) - 1; i >= 0; i-- {
+		if strings.Contains(ghComments[i].Body, marker) {
+			return &ghComments[i], nil
+		}
+	}
+	return nil, nil
 }
 
 // GetCommentsSince retrieves comments posted after a given time.
