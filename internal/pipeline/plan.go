@@ -34,7 +34,12 @@ Repository: %s
 		prompt += fmt.Sprintf(`
 
 ## Human Answers to Previous Questions
-%s`, humanAnswers)
+The maintainer has answered the decision questions. Their selected options (marked [x]) are:
+
+%s
+
+IMPORTANT: Incorporate these decisions into the final plan. Do NOT ask new questions.
+Do NOT include a Questions section. The plan should be ready for implementation.`, humanAnswers)
 	}
 
 	prompt += `
@@ -96,10 +101,10 @@ func (e *Executor) executePlan(ctx context.Context, work scanner.PendingWork, is
 	// Gather research from issue comments
 	research := e.getResearchFromComments(ctx, work)
 
-	// Gather human answers if re-planning
+	// Gather human answers — get the existing plan comment with checked boxes
 	humanAnswers := ""
-	if work.Reason == "human_replied" {
-		humanAnswers = e.getHumanAnswers(ctx, work, issueState)
+	if work.Reason == "human_replied" || work.Reason == "questions_answered" {
+		humanAnswers = e.getAnsweredQuestions(ctx, work)
 	}
 
 	// Build and execute prompt
@@ -185,21 +190,17 @@ func (e *Executor) getResearchFromComments(ctx context.Context, work scanner.Pen
 	return content
 }
 
-// getHumanAnswers collects human replies since the last dayshift comment.
-func (e *Executor) getHumanAnswers(ctx context.Context, work scanner.PendingWork, issueState *state.IssueState) string {
-	latestComment, err := e.state.GetLatestDayshiftComment(issueState.ID)
-	if err != nil || latestComment == nil {
+// getAnsweredQuestions extracts the questions section with checked answers from the existing plan comment.
+func (e *Executor) getAnsweredQuestions(ctx context.Context, work scanner.PendingWork) string {
+	existingPlan, err := e.github.FindCommentByMarker(ctx, work.Project.Repo, work.Issue.Number, comments.MarkerQuestions)
+	if err != nil || existingPlan == nil {
 		return ""
 	}
 
-	humanComments, err := e.state.GetHumanCommentsSince(issueState.ID, latestComment.CreatedAt)
-	if err != nil {
+	questionsContent, found := comments.ExtractMarkedContent(existingPlan.Body, comments.MarkerQuestions, comments.MarkerQuestionsEnd)
+	if !found {
 		return ""
 	}
 
-	var answers string
-	for _, c := range humanComments {
-		answers += fmt.Sprintf("### Reply by %s\n%s\n\n", c.Author, c.Content)
-	}
-	return answers
+	return questionsContent
 }
