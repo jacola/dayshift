@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/marcus/dayshift/internal/comments"
 	"github.com/marcus/dayshift/internal/config"
@@ -135,11 +136,10 @@ func (s *Scanner) determineWork(ctx context.Context, ghIssue gh.Issue, localIssu
 		}
 
 	case state.PhaseClarify:
-		// Check GitHub for human replies since our last dayshift comment
+		// Check GitHub for human replies — either a new comment or checked boxes
 		if s.github != nil {
 			ghComments, err := s.github.GetComments(ctx, project.Repo, ghIssue.Number)
 			if err == nil && len(ghComments) > 0 {
-				// Find the last dayshift comment (has our markers)
 				lastDayshiftIdx := -1
 				for i, c := range ghComments {
 					if comments.HasMarker(c.Body, comments.MarkerPlan) ||
@@ -148,7 +148,8 @@ func (s *Scanner) determineWork(ctx context.Context, ghIssue gh.Issue, localIssu
 						lastDayshiftIdx = i
 					}
 				}
-				// Any comment after the last dayshift comment is a human reply
+
+				// Check 1: New comment after the last dayshift comment
 				if lastDayshiftIdx >= 0 && lastDayshiftIdx < len(ghComments)-1 {
 					return &PendingWork{
 						Issue:      ghIssue,
@@ -156,6 +157,21 @@ func (s *Scanner) determineWork(ctx context.Context, ghIssue gh.Issue, localIssu
 						IssueState: localIssue,
 						NextPhase:  state.PhasePlan,
 						Reason:     "human_replied",
+					}
+				}
+
+				// Check 2: Checked boxes in the plan/questions comment (edited in place)
+				if lastDayshiftIdx >= 0 {
+					body := ghComments[lastDayshiftIdx].Body
+					if comments.HasMarker(body, comments.MarkerQuestions) &&
+						strings.Contains(body, "- [x]") {
+						return &PendingWork{
+							Issue:      ghIssue,
+							Project:    project,
+							IssueState: localIssue,
+							NextPhase:  state.PhasePlan,
+							Reason:     "human_replied",
+						}
 					}
 				}
 			}
