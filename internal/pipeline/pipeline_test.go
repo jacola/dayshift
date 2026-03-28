@@ -86,7 +86,7 @@ func TestBuildPlanPrompt(t *testing.T) {
 	work := createTestWork()
 	prompt := buildPlanPrompt(work, "Research findings here", "", "")
 
-	if !containsAll(prompt, "Test issue", "Research findings here", "dayshift:questions") {
+	if !containsAll(prompt, "Test issue", "Research findings here", "Do NOT include a Questions section") {
 		t.Error("prompt missing expected content")
 	}
 

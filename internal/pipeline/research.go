@@ -27,15 +27,42 @@ Repository: %s
 3. Note any related issues, PRs, or documentation
 4. Look for existing patterns that should be followed
 5. Include file paths with line references where relevant
+6. Identify ALL implementation decisions and ambiguities that need human input
+
+## Decision Questions
+After your research, you MUST identify every decision point where:
+- Multiple implementation approaches exist
+- The issue description is ambiguous about scope or behavior
+- There are tradeoffs the maintainer should weigh in on
+
+For EACH decision, present options with pros/cons using checkboxes so the maintainer can select their preference.
 
 ## CRITICAL: Output Requirements
 - Output your COMPLETE research findings directly as your response text
 - Do NOT write research to plan.md or any other file — your text output IS the research document
 - Do NOT summarize — include ALL details, code snippets, file paths, and analysis
-- The full content of your response will be posted as a GitHub comment and used for the next planning phase
+- The full content of your response will be posted as a GitHub comment
 - If you write findings to a file instead of outputting them, they will be LOST
 
-Format your output as a structured markdown document with clear sections.`,
+Format your output as a structured markdown document. End with a Questions section in this EXACT format:
+
+`+comments.MarkerQuestions+`
+## Questions for Human Review
+
+The following decisions need your input before we create an implementation plan.
+Check the boxes next to your preferred options.
+
+### 1. [Decision title]
+[Context and tradeoffs]
+- [ ] Option A: [description] (recommended because...)
+- [ ] Option B: [description]
+
+### 2. [Next decision]
+[Context]
+- [ ] Option A
+- [ ] Option B
+
+`+comments.MarkerQuestionsEnd,
 		issue.Issue.Title,
 		issue.Issue.Number,
 		issue.Project.Repo,
@@ -82,12 +109,26 @@ func (e *Executor) executeResearch(ctx context.Context, work scanner.PendingWork
 	// Record comment
 	e.state.RecordComment(issueState.ID, state.PhaseResearch, 0, output, "dayshift")
 
-	// Add label and transition
+	// Add researched label
 	e.github.AddLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:researched")
-	if err := e.state.TransitionPhase(issueState.ID, state.PhaseResearch, state.PhasePlan, "research complete"); err != nil {
-		return fmt.Errorf("transition to plan: %w", err)
+
+	// Check if research includes questions for the human
+	hasQuestions := comments.HasMarker(output, comments.MarkerQuestions)
+
+	if hasQuestions {
+		// Questions need human input before planning
+		e.github.AddLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:needs-input")
+		if err := e.state.TransitionPhase(issueState.ID, state.PhaseResearch, state.PhaseClarify, "research has questions"); err != nil {
+			return fmt.Errorf("transition to clarify: %w", err)
+		}
+		e.logger.Infof("research complete for %s#%d — questions for human", work.Project.Repo, work.Issue.Number)
+	} else {
+		// No questions — proceed to plan
+		if err := e.state.TransitionPhase(issueState.ID, state.PhaseResearch, state.PhasePlan, "research complete"); err != nil {
+			return fmt.Errorf("transition to plan: %w", err)
+		}
+		e.logger.Infof("research complete for %s#%d", work.Project.Repo, work.Issue.Number)
 	}
 
-	e.logger.Infof("research complete for %s#%d", work.Project.Repo, work.Issue.Number)
 	return nil
 }

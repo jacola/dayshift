@@ -140,41 +140,46 @@ func (s *Scanner) determineWork(ctx context.Context, ghIssue gh.Issue, localIssu
 		if s.github != nil {
 			ghComments, err := s.github.GetComments(ctx, project.Repo, ghIssue.Number)
 			if err == nil && len(ghComments) > 0 {
-				lastDayshiftIdx := -1
+				// Find the last comment with questions marker
+				lastQuestionsIdx := -1
+				questionsInResearch := false
 				for i, c := range ghComments {
-					if comments.HasMarker(c.Body, comments.MarkerPlan) ||
-						comments.HasMarker(c.Body, comments.MarkerQuestions) ||
-						comments.HasMarker(c.Body, comments.MarkerResearch) {
-						lastDayshiftIdx = i
+					if comments.HasMarker(c.Body, comments.MarkerQuestions) {
+						lastQuestionsIdx = i
+						questionsInResearch = comments.HasMarker(c.Body, comments.MarkerResearch)
 					}
 				}
 
-				// Check 1: New comment after the last dayshift comment
-				if lastDayshiftIdx >= 0 && lastDayshiftIdx < len(ghComments)-1 {
+				if lastQuestionsIdx < 0 {
+					break
+				}
+
+				// Determine next phase: research questions → plan, plan questions → approve
+				nextPhase := state.PhaseApprove
+				if questionsInResearch {
+					nextPhase = state.PhasePlan
+				}
+
+				// Check 1: New comment after the questions comment
+				if lastQuestionsIdx < len(ghComments)-1 {
 					return &PendingWork{
 						Issue:      ghIssue,
 						Project:    project,
 						IssueState: localIssue,
-						NextPhase:  state.PhaseApprove,
+						NextPhase:  nextPhase,
 						Reason:     "human_replied",
 					}
 				}
 
-				// Check 2: Checked boxes in the plan/questions comment
-				// All questions answered → move to approve (don't re-plan)
-				if lastDayshiftIdx >= 0 {
-					body := ghComments[lastDayshiftIdx].Body
-					if comments.HasMarker(body, comments.MarkerQuestions) &&
-						strings.Contains(body, "- [x]") &&
-						!strings.Contains(body, "- [ ]") {
-						// All boxes checked — questions fully answered
-						return &PendingWork{
-							Issue:      ghIssue,
-							Project:    project,
-							IssueState: localIssue,
-							NextPhase:  state.PhaseApprove,
-							Reason:     "questions_answered",
-						}
+				// Check 2: All boxes checked in the questions comment
+				body := ghComments[lastQuestionsIdx].Body
+				if strings.Contains(body, "- [x]") && !strings.Contains(body, "- [ ]") {
+					return &PendingWork{
+						Issue:      ghIssue,
+						Project:    project,
+						IssueState: localIssue,
+						NextPhase:  nextPhase,
+						Reason:     "questions_answered",
 					}
 				}
 			}

@@ -40,13 +40,10 @@ Repository: %s
 	if humanAnswers != "" {
 		prompt += fmt.Sprintf(`
 
-## Human Answers to Previous Questions
-The maintainer has answered the decision questions. Their selected options (marked [x]) are:
+## Human Answers to Research Questions
+The maintainer has answered the decision questions from research. Their selected options (marked [x]) are:
 
-%s
-
-IMPORTANT: Update the existing plan to incorporate these decisions. Avoid asking new questions
-unless genuinely new decisions emerged from the answers. The goal is a plan ready for implementation.`, humanAnswers)
+%s`, humanAnswers)
 	}
 
 	prompt += `
@@ -54,41 +51,17 @@ unless genuinely new decisions emerged from the answers. The goal is a plan read
 ## Instructions
 1. Create a concrete, actionable implementation plan
 2. Be specific about files to modify, approaches to take, and testing strategy
-3. Do NOT make implementation decisions yourself — present options and let the maintainer choose
-
-## CRITICAL: Decision Questions Required
-- You MUST identify every decision point where multiple approaches exist
-- For EACH decision, present the options with pros/cons using the Questions format below
-- Even if one option seems obviously better, present it as a recommendation with alternatives
-- Common decisions to surface: approach choice, scope boundaries, error handling strategy, whether to refactor vs minimal fix, testing approach
-- The plan will NOT proceed to implementation until the maintainer answers all questions
+3. Incorporate the human's answers as firm decisions — do not second-guess them
+4. For any remaining ambiguity, state your assumption clearly in an "Assumptions" section
+5. Do NOT ask new questions — make reasonable assumptions and document them
+6. The maintainer can comment on the issue if they disagree with any assumption
 
 ## CRITICAL: Output Requirements
 - Output your COMPLETE plan directly as your response text
 - Do NOT write the plan to plan.md or any other file — your text output IS the plan
 - The full content of your response will be posted as a GitHub comment
 - If you write the plan to a file instead of outputting it, it will be LOST
-
-You MUST append a Questions section at the end in this EXACT format:
-
-` + comments.MarkerQuestions + `
-## Questions for Human Review
-
-The following decisions need your input before implementation can proceed.
-Reply in a comment with your answers (reference by number), or check the boxes.
-
-### 1. [Decision title]
-[Context and tradeoffs]
-- [ ] Option A: [description] (recommended because...)
-- [ ] Option B: [description]
-- [ ] Option C: [description]
-
-### 2. [Next decision]
-[Context]
-- [ ] Option A
-- [ ] Option B
-
-` + comments.MarkerQuestionsEnd
+- Do NOT include a Questions section — all questions were resolved during research`
 
 	return prompt
 }
@@ -158,25 +131,13 @@ func (e *Executor) executePlan(ctx context.Context, work scanner.PendingWork, is
 	e.state.RecordComment(issueState.ID, state.PhasePlan, 0, result.Output, "dayshift")
 	e.state.SetPhaseData(issueState.ID, result.Output)
 
-	// Check for questions
-	hasQuestions := comments.HasMarker(result.Output, comments.MarkerQuestions)
-
-	if hasQuestions {
-		// Needs human input — do NOT mark as planned
-		e.github.AddLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:needs-input")
-		if err := e.state.TransitionPhase(issueState.ID, state.PhasePlan, state.PhaseClarify, "questions for human"); err != nil {
-			return fmt.Errorf("transition to clarify: %w", err)
-		}
-		e.logger.Infof("plan for %s#%d has questions — waiting for human input", work.Project.Repo, work.Issue.Number)
-	} else {
-		// Plan is complete — mark as planned
-		e.github.AddLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:planned")
-		// Transition to approve — next run will execute the approve phase
-		if err := e.state.TransitionPhase(issueState.ID, state.PhasePlan, state.PhaseApprove, "plan complete"); err != nil {
-			return fmt.Errorf("transition to approve: %w", err)
-		}
-		e.logger.Infof("plan complete for %s#%d — awaiting approval next run", work.Project.Repo, work.Issue.Number)
+	// Plan is complete — always move to approve (no questions from plan phase)
+	e.github.AddLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:planned")
+	e.github.RemoveLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:needs-input")
+	if err := e.state.TransitionPhase(issueState.ID, state.PhasePlan, state.PhaseApprove, "plan complete"); err != nil {
+		return fmt.Errorf("transition to approve: %w", err)
 	}
+	e.logger.Infof("plan complete for %s#%d — awaiting approval next run", work.Project.Repo, work.Issue.Number)
 
 	return nil
 }
