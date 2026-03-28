@@ -181,7 +181,7 @@ func (s *Scanner) determineWork(ctx context.Context, ghIssue gh.Issue, localIssu
 		}
 
 	case state.PhaseApprove:
-		// Check if human added the approved label
+		// Check if human added the approved label → proceed to implement
 		if ghIssue.HasLabel("dayshift:approved") {
 			return &PendingWork{
 				Issue:      ghIssue,
@@ -189,6 +189,16 @@ func (s *Scanner) determineWork(ctx context.Context, ghIssue gh.Issue, localIssu
 				IssueState: localIssue,
 				NextPhase:  state.PhaseImplement,
 				Reason:     "approved",
+			}
+		}
+		// If no awaiting-approval label yet, need to post the approval request
+		if !ghIssue.HasLabel("dayshift:awaiting-approval") {
+			return &PendingWork{
+				Issue:      ghIssue,
+				Project:    project,
+				IssueState: localIssue,
+				NextPhase:  state.PhaseApprove,
+				Reason:     "needs_approval_request",
 			}
 		}
 
