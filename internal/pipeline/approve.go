@@ -35,8 +35,10 @@ The implementation plan for this issue is complete and ready for review.
 		return fmt.Errorf("post approval comment: %w", err)
 	}
 
-	// Add awaiting-approval label
+	// Add awaiting-approval label (and planned if coming from clarify)
+	e.github.AddLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:planned")
 	e.github.AddLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:awaiting-approval")
+	e.github.RemoveLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:needs-input")
 
 	// Ensure we're in the approve phase
 	if issueState.Phase != state.PhaseApprove {

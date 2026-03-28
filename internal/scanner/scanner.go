@@ -155,22 +155,25 @@ func (s *Scanner) determineWork(ctx context.Context, ghIssue gh.Issue, localIssu
 						Issue:      ghIssue,
 						Project:    project,
 						IssueState: localIssue,
-						NextPhase:  state.PhasePlan,
+						NextPhase:  state.PhaseApprove,
 						Reason:     "human_replied",
 					}
 				}
 
-				// Check 2: Checked boxes in the plan/questions comment (edited in place)
+				// Check 2: Checked boxes in the plan/questions comment
+				// All questions answered → move to approve (don't re-plan)
 				if lastDayshiftIdx >= 0 {
 					body := ghComments[lastDayshiftIdx].Body
 					if comments.HasMarker(body, comments.MarkerQuestions) &&
-						strings.Contains(body, "- [x]") {
+						strings.Contains(body, "- [x]") &&
+						!strings.Contains(body, "- [ ]") {
+						// All boxes checked — questions fully answered
 						return &PendingWork{
 							Issue:      ghIssue,
 							Project:    project,
 							IssueState: localIssue,
-							NextPhase:  state.PhasePlan,
-							Reason:     "human_replied",
+							NextPhase:  state.PhaseApprove,
+							Reason:     "questions_answered",
 						}
 					}
 				}
