@@ -26,11 +26,16 @@ Repository: %s
 2. Identify which parts of the codebase are affected by this issue
 3. Note any related issues, PRs, or documentation
 4. Look for existing patterns that should be followed
-5. Summarize your findings in a clear, structured research document
-6. Include file paths with line references where relevant
-7. Output your research as a markdown document
+5. Include file paths with line references where relevant
 
-Focus on being thorough and accurate. The research will be used to create an implementation plan.`,
+## CRITICAL: Output Requirements
+- Output your COMPLETE research findings directly as your response text
+- Do NOT write research to plan.md or any other file — your text output IS the research document
+- Do NOT summarize — include ALL details, code snippets, file paths, and analysis
+- The full content of your response will be posted as a GitHub comment and used for the next planning phase
+- If you write findings to a file instead of outputting them, they will be LOST
+
+Format your output as a structured markdown document with clear sections.`,
 		issue.Issue.Title,
 		issue.Issue.Number,
 		issue.Project.Repo,

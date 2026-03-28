@@ -210,7 +210,12 @@ func selectAgent(cfg *config.Config, providerFlag string) (agents.Agent, error) 
 			}
 		case "copilot":
 			if cfg.Provider.Copilot.Enabled {
-				a := agents.NewCopilotAgent()
+				// Try standalone copilot binary first, then gh extension
+				a := agents.NewCopilotAgent(agents.WithCopilotBinaryPath("copilot"))
+				if a.Available() {
+					return a, nil
+				}
+				a = agents.NewCopilotAgent() // defaults to "gh"
 				if a.Available() {
 					return a, nil
 				}

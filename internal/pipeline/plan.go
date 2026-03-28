@@ -43,7 +43,12 @@ Repository: %s
 1. Create a concrete, actionable implementation plan
 2. Be specific about files to modify, approaches to take, and testing strategy
 3. If you have questions or need decisions from the maintainer, list them in a structured "Questions" section using the EXACT format below
-4. Output the plan as markdown
+
+## CRITICAL: Output Requirements
+- Output your COMPLETE plan directly as your response text
+- Do NOT write the plan to plan.md or any other file — your text output IS the plan
+- The full content of your response will be posted as a GitHub comment
+- If you write the plan to a file instead of outputting it, it will be LOST
 
 If you have questions, append them in this EXACT format at the end:
 
