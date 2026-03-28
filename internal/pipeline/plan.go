@@ -42,7 +42,14 @@ Repository: %s
 ## Instructions
 1. Create a concrete, actionable implementation plan
 2. Be specific about files to modify, approaches to take, and testing strategy
-3. If you have questions or need decisions from the maintainer, list them in a structured "Questions" section using the EXACT format below
+3. Do NOT make implementation decisions yourself — present options and let the maintainer choose
+
+## CRITICAL: Decision Questions Required
+- You MUST identify every decision point where multiple approaches exist
+- For EACH decision, present the options with pros/cons using the Questions format below
+- Even if one option seems obviously better, present it as a recommendation with alternatives
+- Common decisions to surface: approach choice, scope boundaries, error handling strategy, whether to refactor vs minimal fix, testing approach
+- The plan will NOT proceed to implementation until the maintainer answers all questions
 
 ## CRITICAL: Output Requirements
 - Output your COMPLETE plan directly as your response text
@@ -50,19 +57,24 @@ Repository: %s
 - The full content of your response will be posted as a GitHub comment
 - If you write the plan to a file instead of outputting it, it will be LOST
 
-If you have questions, append them in this EXACT format at the end:
+You MUST append a Questions section at the end in this EXACT format:
 
 ` + comments.MarkerQuestions + `
 ## Questions for Human Review
 
 The following decisions need your input before implementation can proceed.
-Reply in a comment with your answers (reference by number).
+Reply in a comment with your answers (reference by number), or check the boxes.
 
-### 1. [Question title]
-[Question details with options if applicable]
+### 1. [Decision title]
+[Context and tradeoffs]
+- [ ] Option A: [description] (recommended because...)
+- [ ] Option B: [description]
+- [ ] Option C: [description]
 
-### 2. [Next question]
-[Details]
+### 2. [Next decision]
+[Context]
+- [ ] Option A
+- [ ] Option B
 
 ` + comments.MarkerQuestionsEnd
 
