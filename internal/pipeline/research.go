@@ -97,6 +97,12 @@ func (e *Executor) executeResearch(ctx context.Context, work scanner.PendingWork
 	// Look for the first markdown heading or horizontal rule as the document start.
 	output := cleanAgentOutput(result.Output)
 
+	// Store session ID for resuming in later phases
+	if result.SessionID != "" {
+		phaseData := fmt.Sprintf(`{"session_id":"%s"}`, result.SessionID)
+		e.state.SetPhaseData(issueState.ID, phaseData)
+	}
+
 	// Post research as comment
 	commentBody := comments.WrapWithMarker(
 		comments.MarkerResearch, comments.MarkerResearchEnd,

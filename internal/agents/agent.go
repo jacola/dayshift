@@ -17,19 +17,21 @@ type Agent interface {
 
 // ExecuteOptions configures an agent execution.
 type ExecuteOptions struct {
-	Prompt  string
-	WorkDir string
-	Files   []string
-	Timeout time.Duration
+	Prompt    string
+	WorkDir   string
+	Files     []string
+	Timeout   time.Duration
+	SessionID string // Resume a previous session (Copilot only)
 }
 
 // ExecuteResult holds the outcome of an agent execution.
 type ExecuteResult struct {
-	Output   string
-	JSON     []byte
-	ExitCode int
-	Duration time.Duration
-	Error    string
+	Output    string
+	JSON      []byte
+	ExitCode  int
+	Duration  time.Duration
+	Error     string
+	SessionID string // Session ID for resuming (Copilot only)
 }
 
 // IsSuccess returns true if the execution succeeded.

@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -61,12 +62,23 @@ func (a *CopilotAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execu
 
 	var args []string
 	if a.binaryPath == "gh" {
-		args = []string{"copilot", "--", "-p", opts.Prompt, "--no-ask-user", "--silent"}
+		args = []string{"copilot", "--"}
+		if opts.SessionID != "" {
+			args = append(args, "--resume="+opts.SessionID, "-p", opts.Prompt)
+		} else {
+			args = append(args, "-p", opts.Prompt)
+		}
+		args = append(args, "--no-ask-user", "--output-format", "json")
 		if a.dangerouslySkipPerms {
 			args = append(args, "--allow-all-tools", "--allow-all-urls")
 		}
 	} else {
-		args = []string{"-p", opts.Prompt, "--no-ask-user", "--silent"}
+		if opts.SessionID != "" {
+			args = []string{"--resume=" + opts.SessionID, "-p", opts.Prompt}
+		} else {
+			args = []string{"-p", opts.Prompt}
+		}
+		args = append(args, "--no-ask-user", "--output-format", "json")
 		if a.dangerouslySkipPerms {
 			args = append(args, "--allow-all-tools", "--allow-all-urls")
 		}
@@ -108,7 +120,11 @@ func (a *CopilotAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execu
 		return result, err
 	}
 
-	result.JSON = extractJSON([]byte(stdout))
+	// Parse JSONL output to extract message content and session ID
+	output, sessionID := parseJSONLOutput(stdout)
+	result.Output = output
+	result.SessionID = sessionID
+	result.JSON = extractJSON([]byte(output))
 	return result, nil
 }
 
@@ -140,4 +156,42 @@ func (a *CopilotAgent) Version() (string, error) {
 		return "", fmt.Errorf("getting version: %w", err)
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+// parseJSONLOutput parses Copilot's JSONL output format to extract the
+// assistant's message content and the session ID.
+func parseJSONLOutput(jsonlOutput string) (content string, sessionID string) {
+	var messages []string
+
+	for _, line := range strings.Split(jsonlOutput, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		var event struct {
+			Type      string `json:"type"`
+			SessionID string `json:"sessionId"`
+			Data      struct {
+				Content string `json:"content"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			continue
+		}
+
+		switch event.Type {
+		case "assistant.message":
+			if event.Data.Content != "" {
+				messages = append(messages, strings.TrimSpace(event.Data.Content))
+			}
+		case "result":
+			if event.SessionID != "" {
+				sessionID = event.SessionID
+			}
+		}
+	}
+
+	content = strings.Join(messages, "\n\n")
+	return
 }

@@ -93,11 +93,15 @@ func (e *Executor) executePlan(ctx context.Context, work scanner.PendingWork, is
 		humanAnswers = e.getAnsweredQuestions(ctx, work)
 	}
 
+	// Try to resume the session from research phase
+	sessionID := getSessionID(issueState.PhaseData)
+
 	// Build and execute prompt
 	prompt := buildPlanPrompt(work, research, existingPlan, humanAnswers)
 	result, err := e.agent.Execute(ctx, agents.ExecuteOptions{
-		Prompt:  prompt,
-		WorkDir: work.Project.Path,
+		Prompt:    prompt,
+		WorkDir:   work.Project.Path,
+		SessionID: sessionID,
 	})
 	if err != nil {
 		e.handlePhaseError(ctx, work, issueState, "plan", err)

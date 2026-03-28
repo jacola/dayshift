@@ -3,6 +3,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -119,4 +120,18 @@ func cleanAgentOutput(output string) string {
 	}
 	// No heading found — return as-is
 	return output
+}
+
+// getSessionID extracts the Copilot session ID from phase_data JSON.
+func getSessionID(phaseData string) string {
+	if phaseData == "" {
+		return ""
+	}
+	var data struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := json.Unmarshal([]byte(phaseData), &data); err != nil {
+		return ""
+	}
+	return data.SessionID
 }
