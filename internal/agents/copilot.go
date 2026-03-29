@@ -161,7 +161,7 @@ func (a *CopilotAgent) Version() (string, error) {
 // parseJSONLOutput parses Copilot's JSONL output format to extract the
 // assistant's message content and the session ID.
 func parseJSONLOutput(jsonlOutput string) (content string, sessionID string) {
-	var messages []string
+	var lastMessage string
 
 	for _, line := range strings.Split(jsonlOutput, "\n") {
 		line = strings.TrimSpace(line)
@@ -183,7 +183,7 @@ func parseJSONLOutput(jsonlOutput string) (content string, sessionID string) {
 		switch event.Type {
 		case "assistant.message":
 			if event.Data.Content != "" {
-				messages = append(messages, strings.TrimSpace(event.Data.Content))
+				lastMessage = strings.TrimSpace(event.Data.Content)
 			}
 		case "result":
 			if event.SessionID != "" {
@@ -192,6 +192,6 @@ func parseJSONLOutput(jsonlOutput string) (content string, sessionID string) {
 		}
 	}
 
-	content = strings.Join(messages, "\n\n")
+	content = lastMessage
 	return
 }
