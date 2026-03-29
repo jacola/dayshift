@@ -164,10 +164,10 @@ func (s *Scanner) determineWork(ctx context.Context, ghIssue gh.Issue, localIssu
 					}
 				}
 
-				// Check 2: All question boxes checked (only check within the questions section)
+				// Check 2: Human has selected options (at least one [x] in questions section)
 				body := ghComments[lastQuestionsIdx].Body
 				questionsSection, found := comments.ExtractMarkedContent(body, comments.MarkerQuestions, comments.MarkerQuestionsEnd)
-				if found && strings.Contains(questionsSection, "- [x]") && !strings.Contains(questionsSection, "- [ ]") {
+				if found && strings.Contains(questionsSection, "- [x]") {
 					return &PendingWork{
 						Issue:      ghIssue,
 						Project:    project,
