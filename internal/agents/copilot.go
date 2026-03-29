@@ -68,20 +68,14 @@ func (a *CopilotAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execu
 		} else {
 			args = append(args, "-p", opts.Prompt)
 		}
-		args = append(args, "--no-ask-user", "--output-format", "json")
-		if a.dangerouslySkipPerms {
-			args = append(args, "--allow-all-tools", "--allow-all-urls")
-		}
+		args = append(args, "--no-ask-user", "--output-format", "json", "--allow-all-tools", "--allow-all-urls")
 	} else {
 		if opts.SessionID != "" {
 			args = []string{"--resume=" + opts.SessionID, "-p", opts.Prompt}
 		} else {
 			args = []string{"-p", opts.Prompt}
 		}
-		args = append(args, "--no-ask-user", "--output-format", "json")
-		if a.dangerouslySkipPerms {
-			args = append(args, "--allow-all-tools", "--allow-all-urls")
-		}
+		args = append(args, "--no-ask-user", "--output-format", "json", "--allow-all-tools", "--allow-all-urls")
 	}
 
 	var stdinContent string
