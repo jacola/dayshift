@@ -211,6 +211,16 @@ func (s *Scanner) determineWork(ctx context.Context, ghIssue gh.Issue, localIssu
 			Reason:     "implementation_complete",
 		}
 
+	case state.PhaseValidate:
+		// Validate phase ready to run
+		return &PendingWork{
+			Issue:      ghIssue,
+			Project:    project,
+			IssueState: localIssue,
+			NextPhase:  state.PhaseValidate,
+			Reason:     "ready_to_validate",
+		}
+
 	case state.PhaseError:
 		// Could be retried — but for now, skip
 		return nil
