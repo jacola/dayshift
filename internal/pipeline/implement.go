@@ -168,7 +168,7 @@ func currentBranch(ctx context.Context, workDir string) string {
 }
 
 // ensureIssueBranch creates or checks out a branch for the given issue.
-// Looks for existing dayshift/<number>-* branches first.
+// Pulls latest changes on the default branch before creating a new branch.
 func ensureIssueBranch(ctx context.Context, workDir string, issueNumber int, title string) (string, error) {
 	branchPrefix := fmt.Sprintf("dayshift/%d-", issueNumber)
 
@@ -179,9 +179,8 @@ func ensureIssueBranch(ctx context.Context, workDir string, issueNumber int, tit
 	if err == nil {
 		existing := strings.TrimSpace(string(output))
 		if existing != "" {
-			// Use the first matching branch
 			branch := strings.TrimSpace(strings.Split(existing, "\n")[0])
-			branch = strings.TrimPrefix(branch, "* ") // remove current branch marker
+			branch = strings.TrimPrefix(branch, "* ")
 			branch = strings.TrimSpace(branch)
 			if err := gitCheckout(ctx, workDir, branch); err != nil {
 				return "", fmt.Errorf("checkout existing branch %s: %w", branch, err)
@@ -190,14 +189,17 @@ func ensureIssueBranch(ctx context.Context, workDir string, issueNumber int, tit
 		}
 	}
 
-	// Create a new branch name from the issue title
+	// Pull latest on the default branch before creating a new branch
+	defaultBranch := getDefaultBranch(ctx, workDir)
+	gitCheckout(ctx, workDir, defaultBranch)
+	gitPull(ctx, workDir)
+
+	// Create a new branch from the now-updated default branch
 	branchName := fmt.Sprintf("dayshift/%d-%s", issueNumber, slugify(title))
 	if len(branchName) > 80 {
 		branchName = branchName[:80]
 	}
 
-	// Create and checkout the new branch from the default branch
-	defaultBranch := getDefaultBranch(ctx, workDir)
 	cmd = exec.CommandContext(ctx, "git", "checkout", "-b", branchName, defaultBranch)
 	cmd.Dir = workDir
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -216,6 +218,13 @@ func gitCheckout(ctx context.Context, workDir, branch string) error {
 		return fmt.Errorf("%s", strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+// gitPull pulls latest changes on the current branch.
+func gitPull(ctx context.Context, workDir string) {
+	cmd := exec.CommandContext(ctx, "git", "pull", "--ff-only")
+	cmd.Dir = workDir
+	_ = cmd.Run()
 }
 
 // getDefaultBranch returns the default branch (main or master).
