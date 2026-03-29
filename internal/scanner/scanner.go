@@ -164,9 +164,10 @@ func (s *Scanner) determineWork(ctx context.Context, ghIssue gh.Issue, localIssu
 					}
 				}
 
-				// Check 2: All boxes checked in the questions comment
+				// Check 2: All question boxes checked (only check within the questions section)
 				body := ghComments[lastQuestionsIdx].Body
-				if strings.Contains(body, "- [x]") && !strings.Contains(body, "- [ ]") {
+				questionsSection, found := comments.ExtractMarkedContent(body, comments.MarkerQuestions, comments.MarkerQuestionsEnd)
+				if found && strings.Contains(questionsSection, "- [x]") && !strings.Contains(questionsSection, "- [ ]") {
 					return &PendingWork{
 						Issue:      ghIssue,
 						Project:    project,
