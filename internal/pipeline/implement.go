@@ -31,17 +31,19 @@ URL: https://github.com/%s/issues/%d
 %s
 
 ## Instructions
-0. Work on a new branch. Never work directly on the primary branch.
-   Create your feature branch from '%s'.
-1. Before creating your branch, record the current branch name.
-2. Implement the plan step by step.
-3. Ensure tests pass.
-4. Create a PR linking to the issue (include "Fixes #%d" or "Closes #%d" in the PR description).
-5. Include these git trailers in your commits:
+0. You are already on branch '%s'. Do NOT create a new branch or switch branches.
+1. Implement the plan step by step.
+2. Ensure tests pass.
+3. Commit your changes. Include these git trailers:
    Dayshift-Issue: https://github.com/%s/issues/%d
    Dayshift-Ref: https://github.com/marcus/dayshift
-6. After the PR is submitted, switch back to the original branch.
-7. Output a summary of what was implemented.`,
+4. Push the branch and create a PR linking to the issue (include "Fixes #%d" or "Closes #%d" in the PR description).
+5. Do NOT switch branches after creating the PR — dayshift manages branch checkout.
+6. Output a summary of what was implemented.
+
+## CRITICAL: Output Requirements
+- Output your implementation summary directly as your response text
+- The full content of your response will be posted as a GitHub comment on the issue`,
 		issue.Issue.Title,
 		issue.Issue.Number,
 		issue.Project.Repo,
@@ -50,8 +52,8 @@ URL: https://github.com/%s/issues/%d
 		research,
 		plan,
 		branch,
-		issue.Issue.Number, issue.Issue.Number,
 		issue.Project.Repo, issue.Issue.Number,
+		issue.Issue.Number, issue.Issue.Number,
 	)
 }
 
@@ -69,14 +71,33 @@ func (e *Executor) executeImplement(ctx context.Context, work scanner.PendingWor
 	research := e.getResearchFromComments(ctx, work)
 	plan := e.getPlanFromComments(ctx, work)
 
-	// Detect current branch
-	branch := currentBranch(ctx, work.Project.Path)
+	// Save the original branch to switch back after
+	originalBranch := currentBranch(ctx, work.Project.Path)
+
+	// Create or checkout the issue branch
+	issueBranch, err := ensureIssueBranch(ctx, work.Project.Path, work.Issue.Number, work.Issue.Title)
+	if err != nil {
+		e.handlePhaseError(ctx, work, issueState, "implement", fmt.Errorf("branch setup: %w", err))
+		return fmt.Errorf("branch setup: %w", err)
+	}
+	e.logger.Infof("working on branch %s for %s#%d", issueBranch, work.Project.Repo, work.Issue.Number)
+
+	// Ensure we switch back to the original branch when done
+	defer func() {
+		if originalBranch != "" && originalBranch != issueBranch {
+			gitCheckout(ctx, work.Project.Path, originalBranch)
+		}
+	}()
+
+	// Resume session from plan phase
+	sessionID := getSessionID(issueState.PhaseData)
 
 	// Build and execute prompt
-	prompt := buildImplementPrompt(work, research, plan, branch)
+	prompt := buildImplementPrompt(work, research, plan, issueBranch)
 	result, err := e.agent.Execute(ctx, agents.ExecuteOptions{
-		Prompt:  prompt,
-		WorkDir: work.Project.Path,
+		Prompt:    prompt,
+		WorkDir:   work.Project.Path,
+		SessionID: sessionID,
 	})
 	if err != nil {
 		e.handlePhaseError(ctx, work, issueState, "implement", err)
@@ -85,6 +106,12 @@ func (e *Executor) executeImplement(ctx context.Context, work scanner.PendingWor
 	if !result.IsSuccess() {
 		e.handlePhaseError(ctx, work, issueState, "implement", fmt.Errorf("agent failed: %s", result.Error))
 		return fmt.Errorf("implement agent failed: %s", result.Error)
+	}
+
+	// Store session ID for validate phase
+	if result.SessionID != "" {
+		phaseData := fmt.Sprintf(`{"session_id":"%s"}`, result.SessionID)
+		e.state.SetPhaseData(issueState.ID, phaseData)
 	}
 
 	// Extract PR URL
@@ -138,4 +165,87 @@ func currentBranch(ctx context.Context, workDir string) string {
 		return "main"
 	}
 	return strings.TrimSpace(string(output))
+}
+
+// ensureIssueBranch creates or checks out a branch for the given issue.
+// Looks for existing dayshift/<number>-* branches first.
+func ensureIssueBranch(ctx context.Context, workDir string, issueNumber int, title string) (string, error) {
+	branchPrefix := fmt.Sprintf("dayshift/%d-", issueNumber)
+
+	// Check if a branch already exists for this issue
+	cmd := exec.CommandContext(ctx, "git", "branch", "--list", branchPrefix+"*")
+	cmd.Dir = workDir
+	output, err := cmd.Output()
+	if err == nil {
+		existing := strings.TrimSpace(string(output))
+		if existing != "" {
+			// Use the first matching branch
+			branch := strings.TrimSpace(strings.Split(existing, "\n")[0])
+			branch = strings.TrimPrefix(branch, "* ") // remove current branch marker
+			branch = strings.TrimSpace(branch)
+			if err := gitCheckout(ctx, workDir, branch); err != nil {
+				return "", fmt.Errorf("checkout existing branch %s: %w", branch, err)
+			}
+			return branch, nil
+		}
+	}
+
+	// Create a new branch name from the issue title
+	branchName := fmt.Sprintf("dayshift/%d-%s", issueNumber, slugify(title))
+	if len(branchName) > 80 {
+		branchName = branchName[:80]
+	}
+
+	// Create and checkout the new branch from the default branch
+	defaultBranch := getDefaultBranch(ctx, workDir)
+	cmd = exec.CommandContext(ctx, "git", "checkout", "-b", branchName, defaultBranch)
+	cmd.Dir = workDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("create branch %s: %s", branchName, strings.TrimSpace(string(out)))
+	}
+
+	return branchName, nil
+}
+
+// gitCheckout switches to the given branch.
+func gitCheckout(ctx context.Context, workDir, branch string) error {
+	cmd := exec.CommandContext(ctx, "git", "checkout", branch)
+	cmd.Dir = workDir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s", strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// getDefaultBranch returns the default branch (main or master).
+func getDefaultBranch(ctx context.Context, workDir string) string {
+	cmd := exec.CommandContext(ctx, "git", "symbolic-ref", "refs/remotes/origin/HEAD", "--short")
+	cmd.Dir = workDir
+	output, err := cmd.Output()
+	if err != nil {
+		return "main"
+	}
+	// Output is like "origin/main" — strip the remote prefix
+	branch := strings.TrimSpace(string(output))
+	if parts := strings.SplitN(branch, "/", 2); len(parts) == 2 {
+		return parts[1]
+	}
+	return "main"
+}
+
+// slugify converts a title to a branch-name-safe slug.
+func slugify(s string) string {
+	s = strings.ToLower(s)
+	// Replace non-alphanumeric with hyphens
+	var result []byte
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+			result = append(result, c)
+		} else if len(result) > 0 && result[len(result)-1] != '-' {
+			result = append(result, '-')
+		}
+	}
+	return strings.Trim(string(result), "-")
 }
