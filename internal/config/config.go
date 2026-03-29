@@ -16,6 +16,7 @@ type Config struct {
 	Projects []ProjectConfig `mapstructure:"projects"`
 	Schedule ScheduleConfig  `mapstructure:"schedule"`
 	Labels   LabelsConfig    `mapstructure:"labels"`
+	Issues   IssuesConfig    `mapstructure:"issues"`
 	Provider ProviderConfig  `mapstructure:"provider"`
 	Budget   BudgetConfig    `mapstructure:"budget"`
 	Phases   PhasesConfig    `mapstructure:"phases"`
@@ -38,6 +39,11 @@ type ScheduleConfig struct {
 type LabelsConfig struct {
 	Trigger string `mapstructure:"trigger"`
 	Prefix  string `mapstructure:"prefix"`
+}
+
+// IssuesConfig controls which issues are processed.
+type IssuesConfig struct {
+	AuthorFilter string `mapstructure:"author_filter"` // "self" (default), "all", or a specific username
 }
 
 // ProviderConfig controls AI provider selection.
@@ -217,6 +223,8 @@ func setDefaults(v *viper.Viper) {
 
 	v.SetDefault("labels.trigger", "dayshift")
 	v.SetDefault("labels.prefix", "dayshift:")
+
+	v.SetDefault("issues.author_filter", "self")
 
 	v.SetDefault("provider.preference", []string{"claude", "copilot", "codex"})
 	v.SetDefault("provider.timeout", "30m")

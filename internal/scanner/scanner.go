@@ -42,7 +42,6 @@ func New(client *gh.Client, mgr *state.Manager, cfg *config.Config) *Scanner {
 }
 
 // Scan checks all configured projects for issues needing processing.
-// Returns a sorted list of work items (by project priority, then issue age).
 func (s *Scanner) Scan(ctx context.Context) ([]PendingWork, error) {
 	var work []PendingWork
 
@@ -51,8 +50,11 @@ func (s *Scanner) Scan(ctx context.Context) ([]PendingWork, error) {
 		triggerLabel = "dayshift"
 	}
 
+	// Resolve author filter
+	author := s.resolveAuthorFilter(ctx)
+
 	for _, project := range s.config.Projects {
-		items, err := s.scanProject(ctx, project, triggerLabel)
+		items, err := s.scanProject(ctx, project, triggerLabel, author)
 		if err != nil {
 			s.logger.Errorf("scan %s: %v", project.Repo, err)
 			continue
@@ -60,7 +62,6 @@ func (s *Scanner) Scan(ctx context.Context) ([]PendingWork, error) {
 		work = append(work, items...)
 	}
 
-	// Sort by project priority (desc), then issue age (asc — oldest first)
 	sort.Slice(work, func(i, j int) bool {
 		if work[i].Project.Priority != work[j].Project.Priority {
 			return work[i].Project.Priority > work[j].Project.Priority
@@ -71,8 +72,31 @@ func (s *Scanner) Scan(ctx context.Context) ([]PendingWork, error) {
 	return work, nil
 }
 
-func (s *Scanner) scanProject(ctx context.Context, project config.ProjectConfig, triggerLabel string) ([]PendingWork, error) {
-	issues, err := s.github.ListIssues(ctx, project.Repo, triggerLabel)
+// resolveAuthorFilter returns the GitHub username to filter by, or empty for all.
+func (s *Scanner) resolveAuthorFilter(ctx context.Context) string {
+	filter := s.config.Issues.AuthorFilter
+	if filter == "" {
+		filter = "self"
+	}
+
+	switch filter {
+	case "all":
+		return ""
+	case "self":
+		user, err := s.github.CurrentUser(ctx)
+		if err != nil {
+			s.logger.Warnf("could not resolve current user for author filter: %v", err)
+			return ""
+		}
+		s.logger.Debugf("author filter: self → %s", user)
+		return user
+	default:
+		return filter
+	}
+}
+
+func (s *Scanner) scanProject(ctx context.Context, project config.ProjectConfig, triggerLabel string, author string) ([]PendingWork, error) {
+	issues, err := s.github.ListIssues(ctx, project.Repo, triggerLabel, author)
 	if err != nil {
 		return nil, fmt.Errorf("list issues: %w", err)
 	}

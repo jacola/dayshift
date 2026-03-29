@@ -30,7 +30,7 @@ func (m *Manager) Reconcile(ctx context.Context, client *gh.Client, projects []c
 	logger := logging.Component("reconcile")
 
 	for _, project := range projects {
-		issues, err := client.ListIssues(ctx, project.Repo, triggerLabel)
+		issues, err := client.ListIssues(ctx, project.Repo, triggerLabel, "")
 		if err != nil {
 			logger.Errorf("reconcile %s: %v", project.Repo, err)
 			continue

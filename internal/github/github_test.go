@@ -63,7 +63,7 @@ func TestListIssues(t *testing.T) {
 	mock.Response["gh -R owner/repo issue list"] = MockResponse{Stdout: string(data)}
 
 	client := NewClient(WithRunner(mock))
-	result, err := client.ListIssues(context.Background(), "owner/repo", "dayshift")
+	result, err := client.ListIssues(context.Background(), "owner/repo", "dayshift", "")
 	if err != nil {
 		t.Fatalf("ListIssues: %v", err)
 	}

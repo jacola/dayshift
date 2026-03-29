@@ -59,15 +59,19 @@ type Comment struct {
 	CreatedAt  time.Time `json:"createdAt"`
 }
 
-// ListIssues lists open issues with a specific label.
-func (c *Client) ListIssues(ctx context.Context, repo string, label string) ([]Issue, error) {
-	stdout, err := c.gh(ctx, repo,
+// ListIssues lists open issues with a specific label. If author is non-empty, filters to that author.
+func (c *Client) ListIssues(ctx context.Context, repo string, label string, author string) ([]Issue, error) {
+	args := []string{
 		"issue", "list",
 		"--label", label,
 		"--state", "open",
 		"--json", "number,title,body,labels,state,author,createdAt,updatedAt",
 		"--limit", "100",
-	)
+	}
+	if author != "" {
+		args = append(args, "--author", author)
+	}
+	stdout, err := c.gh(ctx, repo, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list issues: %w", err)
 	}
@@ -77,6 +81,15 @@ func (c *Client) ListIssues(ctx context.Context, repo string, label string) ([]I
 		return nil, fmt.Errorf("parse issues: %w", err)
 	}
 	return issues, nil
+}
+
+// CurrentUser returns the authenticated GitHub username.
+func (c *Client) CurrentUser(ctx context.Context) (string, error) {
+	stdout, stderr, _, err := c.runner.Run(ctx, "gh", []string{"api", "user", "--jq", ".login"}, "")
+	if err != nil {
+		return "", fmt.Errorf("get current user: %s", strings.TrimSpace(stderr))
+	}
+	return strings.TrimSpace(stdout), nil
 }
 
 // GetIssue fetches a single issue by number.
