@@ -6,14 +6,17 @@ import (
 	"strings"
 )
 
-const statusSeparator = "\n\n---\n**Dayshift Status:**\n\n"
+const (
+	statusMarkerOpen  = "<!-- dayshift:status -->"
+	statusMarkerClose = "<!-- /dayshift:status -->"
+)
 
 // StatusUpdate represents the current pipeline status for an issue.
 type StatusUpdate struct {
-	ResearchLink string // URL to research comment (empty = not done)
-	PlanLink     string // URL to plan comment (empty = not done)
-	ImplementRef string // PR reference like "#774" (empty = not done)
-	ValidateLink string // URL to validation comment (empty = not done)
+	ResearchLink string
+	PlanLink     string
+	ImplementRef string
+	ValidateLink string
 }
 
 // UpdateIssueStatus appends or updates the Dayshift Status section in the issue body.
@@ -23,22 +26,56 @@ func (c *Client) UpdateIssueStatus(ctx context.Context, repo string, number int,
 		return fmt.Errorf("get issue: %w", err)
 	}
 
-	// Build status section
 	statusSection := buildStatusSection(status)
 
-	// Remove existing status section if present
+	// Remove existing status section (between markers) if present
 	body := issue.Body
-	if idx := strings.Index(body, "\n\n---\n**Dayshift Status:**"); idx >= 0 {
-		body = body[:idx]
+	if startIdx := strings.Index(body, statusMarkerOpen); startIdx >= 0 {
+		endIdx := strings.Index(body, statusMarkerClose)
+		if endIdx >= 0 {
+			body = body[:startIdx] + body[endIdx+len(statusMarkerClose):]
+		} else {
+			body = body[:startIdx]
+		}
+		body = strings.TrimRight(body, "\n")
 	}
 
-	// Append new status
-	newBody := body + statusSection
+	newBody := body + "\n\n" + statusSection
 
-	// Update the issue body
 	_, err = c.gh(ctx, repo,
 		"issue", "edit", fmt.Sprintf("%d", number),
 		"--body", newBody,
+	)
+	if err != nil {
+		return fmt.Errorf("update issue body: %w", err)
+	}
+	return nil
+}
+
+// RemoveIssueStatus removes the Dayshift Status section from an issue body.
+func (c *Client) RemoveIssueStatus(ctx context.Context, repo string, number int) error {
+	issue, err := c.GetIssue(ctx, repo, number)
+	if err != nil {
+		return fmt.Errorf("get issue: %w", err)
+	}
+
+	body := issue.Body
+	startIdx := strings.Index(body, statusMarkerOpen)
+	if startIdx < 0 {
+		return nil // no status to remove
+	}
+
+	endIdx := strings.Index(body, statusMarkerClose)
+	if endIdx >= 0 {
+		body = body[:startIdx] + body[endIdx+len(statusMarkerClose):]
+	} else {
+		body = body[:startIdx]
+	}
+	body = strings.TrimRight(body, "\n")
+
+	_, err = c.gh(ctx, repo,
+		"issue", "edit", fmt.Sprintf("%d", number),
+		"--body", body,
 	)
 	if err != nil {
 		return fmt.Errorf("update issue body: %w", err)
@@ -73,5 +110,5 @@ func buildStatusSection(s StatusUpdate) string {
 		lines = append(lines, "- [ ] Validation Report")
 	}
 
-	return statusSeparator + strings.Join(lines, "\n") + "\n"
+	return statusMarkerOpen + "\n\n---\n**Dayshift Status:**\n\n" + strings.Join(lines, "\n") + "\n" + statusMarkerClose
 }

@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/marcus/dayshift/internal/db"
+	gh "github.com/marcus/dayshift/internal/github"
 	"github.com/marcus/dayshift/internal/state"
 	"github.com/spf13/cobra"
 )
@@ -98,19 +99,27 @@ func runReset(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("✓ Reset %s#%d — removed from tracking (was in %s phase)\n", repo, number, issue.Phase)
-	fmt.Println("  The issue will be picked up fresh on the next run if it still has the trigger label.")
 
-	// Clean up dayshift labels
-	fmt.Println("\n  To also remove dayshift labels from the issue:")
-	fmt.Printf("  gh issue edit %d -R %s", number, repo)
+	// Clean up GitHub: remove labels and status section
+	client := gh.NewClient()
+	ctx := cmd.Context()
+
 	labels := []string{"dayshift:researched", "dayshift:planned", "dayshift:needs-input",
 		"dayshift:awaiting-approval", "dayshift:approved", "dayshift:implementing",
 		"dayshift:implemented", "dayshift:validated", "dayshift:needs-fixes",
 		"dayshift:complete", "dayshift:error", "dayshift:paused"}
 	for _, l := range labels {
-		fmt.Printf(" --remove-label %q", l)
+		client.RemoveLabel(ctx, repo, number, l)
 	}
-	fmt.Println()
+	fmt.Println("  ✓ Removed dayshift labels")
+
+	if err := client.RemoveIssueStatus(ctx, repo, number); err != nil {
+		fmt.Printf("  ⚠ Could not remove status from issue body: %v\n", err)
+	} else {
+		fmt.Println("  ✓ Removed status section from issue body")
+	}
+
+	fmt.Println("\n  The issue will be picked up fresh on the next run if it still has the trigger label.")
 
 	return nil
 }
