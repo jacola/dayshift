@@ -83,8 +83,6 @@ func (e *Executor) ProcessIssue(ctx context.Context, work scanner.PendingWork) e
 		return e.executeResearch(ctx, work, issueState)
 	case state.PhasePlan:
 		return e.executePlan(ctx, work, issueState)
-	case state.PhaseApprove:
-		return e.executeApprove(ctx, work, issueState)
 	case state.PhaseImplement:
 		return e.executeImplement(ctx, work, issueState)
 	case state.PhaseValidate:
@@ -106,6 +104,18 @@ func extractPRURL(text string) string {
 	return matches[len(matches)-1]
 }
 
+// extractPRRef converts a PR URL to a short reference like "#42".
+func extractPRRef(prURL string) string {
+	if prURL == "" {
+		return ""
+	}
+	parts := strings.Split(prURL, "/")
+	if len(parts) > 0 {
+		return "#" + parts[len(parts)-1]
+	}
+	return ""
+}
+
 // cleanAgentOutput strips agent "thinking out loud" preamble from output.
 // Agents often emit status messages before the actual document. We find
 // the first markdown heading (# ...) or horizontal rule (---) and discard
@@ -122,16 +132,25 @@ func cleanAgentOutput(output string) string {
 	return output
 }
 
+// IssueProgress tracks URLs/refs produced by each phase.
+type IssueProgress struct {
+	SessionID    string `json:"session_id,omitempty"`
+	ResearchURL  string `json:"research_url,omitempty"`
+	PlanURL      string `json:"plan_url,omitempty"`
+	ImplementRef string `json:"implement_ref,omitempty"`
+	ValidateURL  string `json:"validate_url,omitempty"`
+}
+
+// getProgress deserializes IssueProgress from phase_data JSON.
+func getProgress(phaseData string) IssueProgress {
+	var p IssueProgress
+	if phaseData != "" {
+		json.Unmarshal([]byte(phaseData), &p)
+	}
+	return p
+}
+
 // getSessionID extracts the Copilot session ID from phase_data JSON.
 func getSessionID(phaseData string) string {
-	if phaseData == "" {
-		return ""
-	}
-	var data struct {
-		SessionID string `json:"session_id"`
-	}
-	if err := json.Unmarshal([]byte(phaseData), &data); err != nil {
-		return ""
-	}
-	return data.SessionID
+	return getProgress(phaseData).SessionID
 }

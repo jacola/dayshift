@@ -94,12 +94,15 @@ func TestGetIssue(t *testing.T) {
 
 func TestPostComment(t *testing.T) {
 	mock := NewMockRunner()
-	mock.Response["gh -R owner/repo issue comment 1"] = MockResponse{Stdout: ""}
+	mock.Response["gh -R owner/repo issue comment 1"] = MockResponse{Stdout: "https://github.com/owner/repo/issues/1#issuecomment-123"}
 
 	client := NewClient(WithRunner(mock))
-	err := client.PostComment(context.Background(), "owner/repo", 1, "Test comment")
+	url, err := client.PostComment(context.Background(), "owner/repo", 1, "Test comment")
 	if err != nil {
 		t.Fatalf("PostComment: %v", err)
+	}
+	if url != "https://github.com/owner/repo/issues/1#issuecomment-123" {
+		t.Errorf("expected comment URL, got %q", url)
 	}
 
 	if len(mock.Calls) != 1 {

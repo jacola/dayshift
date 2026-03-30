@@ -88,29 +88,26 @@ func TestScanApprovedIssue(t *testing.T) {
 		},
 	}
 
+	// Issues in the plan phase with no questions go straight to implement
 	mgr.UpsertIssue(&state.IssueState{
-		Repo: "owner/repo", IssueNumber: 1, Title: "Test", Phase: state.PhaseApprove,
+		Repo: "owner/repo", IssueNumber: 1, Title: "Test", Phase: state.PhaseImplement,
 	})
 	localIssue, _ := mgr.GetIssue("owner/repo", 1)
 
 	scanner := New(nil, mgr, cfg)
 
-	// Issue has the approved label
 	issue := gh.Issue{
 		Number: 1,
 		Title:  "Test",
-		Labels: []gh.GHLabel{{Name: "dayshift"}, {Name: "dayshift:approved"}},
+		Labels: []gh.GHLabel{{Name: "dayshift"}, {Name: "dayshift:planned"}},
 	}
 
 	pending := scanner.determineWork(context.Background(), issue, localIssue, cfg.Projects[0])
 	if pending == nil {
-		t.Fatal("expected pending work for approved issue")
+		t.Fatal("expected pending work for implement phase issue")
 	}
-	if pending.NextPhase != state.PhaseImplement {
-		t.Errorf("expected implement, got %s", pending.NextPhase)
-	}
-	if pending.Reason != "approved" {
-		t.Errorf("expected reason approved, got %s", pending.Reason)
+	if pending.NextPhase != state.PhaseValidate {
+		t.Errorf("expected validate, got %s", pending.NextPhase)
 	}
 }
 

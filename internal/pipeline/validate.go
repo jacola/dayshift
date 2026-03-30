@@ -2,11 +2,13 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/marcus/dayshift/internal/agents"
 	"github.com/marcus/dayshift/internal/comments"
+	gh "github.com/marcus/dayshift/internal/github"
 	"github.com/marcus/dayshift/internal/scanner"
 	"github.com/marcus/dayshift/internal/state"
 )
@@ -81,8 +83,22 @@ func (e *Executor) executeValidate(ctx context.Context, work scanner.PendingWork
 		comments.MarkerValidation, comments.MarkerValidationEnd,
 		result.Output,
 	)
-	e.github.PostComment(ctx, work.Project.Repo, work.Issue.Number, commentBody)
+	validateURL, _ := e.github.PostComment(ctx, work.Project.Repo, work.Issue.Number, commentBody)
 	e.state.RecordComment(issueState.ID, state.PhaseValidate, 0, result.Output, "dayshift")
+
+	// Update progress with validate URL
+	progress := getProgress(issueState.PhaseData)
+	progress.ValidateURL = validateURL
+	data, _ := json.Marshal(progress)
+	e.state.SetPhaseData(issueState.ID, string(data))
+
+	// Update issue status tracker
+	e.github.UpdateIssueStatus(ctx, work.Project.Repo, work.Issue.Number, gh.StatusUpdate{
+		ResearchLink: progress.ResearchURL,
+		PlanLink:     progress.PlanURL,
+		ImplementRef: progress.ImplementRef,
+		ValidateLink: validateURL,
+	})
 
 	// Check if validation passed (heuristic)
 	passed := inferValidationPassed(result.Output)

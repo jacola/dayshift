@@ -28,13 +28,12 @@ const (
 var ValidTransitions = map[string][]string{
 	PhasePending:   {PhaseResearch},
 	PhaseResearch:  {PhasePlan, PhaseError},
-	PhasePlan:      {PhaseClarify, PhaseApprove, PhaseError},
-	PhaseClarify:   {PhasePlan, PhaseApprove, PhaseError},
-	PhaseApprove:   {PhaseImplement, PhaseError},
+	PhasePlan:      {PhaseClarify, PhaseImplement, PhaseError},
+	PhaseClarify:   {PhasePlan, PhaseImplement, PhaseError},
 	PhaseImplement: {PhaseValidate, PhaseError},
 	PhaseValidate:  {PhaseComplete, PhaseImplement, PhaseError},
 	PhaseError:     {PhasePending}, // Can restart from error
-	PhasePaused:    {PhasePending, PhaseResearch, PhasePlan, PhaseClarify, PhaseApprove, PhaseImplement, PhaseValidate},
+	PhasePaused:    {PhasePending, PhaseResearch, PhasePlan, PhaseClarify, PhaseImplement, PhaseValidate},
 }
 
 // IssueState represents the persisted state of an issue.

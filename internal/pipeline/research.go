@@ -2,10 +2,12 @@ package pipeline
 
 import (
 "context"
+"encoding/json"
 "fmt"
 
 "github.com/marcus/dayshift/internal/agents"
 "github.com/marcus/dayshift/internal/comments"
+gh "github.com/marcus/dayshift/internal/github"
 "github.com/marcus/dayshift/internal/scanner"
 "github.com/marcus/dayshift/internal/state"
 )
@@ -66,20 +68,29 @@ return fmt.Errorf("research agent failed: %s", result.Error)
 
 output := cleanAgentOutput(result.Output)
 
-// Store session ID for resuming in plan phase
-if result.SessionID != "" {
-phaseData := fmt.Sprintf(`{"session_id":"%s"}`, result.SessionID)
-e.state.SetPhaseData(issueState.ID, phaseData)
-}
-
 // Post research as comment
 commentBody := comments.WrapWithMarker(
 comments.MarkerResearch, comments.MarkerResearchEnd,
 output,
 )
-if err := e.github.PostComment(ctx, work.Project.Repo, work.Issue.Number, commentBody); err != nil {
+commentURL, err := e.github.PostComment(ctx, work.Project.Repo, work.Issue.Number, commentBody)
+if err != nil {
 return fmt.Errorf("post research comment: %w", err)
 }
+
+// Update progress with session ID and research URL
+progress := getProgress(issueState.PhaseData)
+if result.SessionID != "" {
+progress.SessionID = result.SessionID
+}
+progress.ResearchURL = commentURL
+data, _ := json.Marshal(progress)
+e.state.SetPhaseData(issueState.ID, string(data))
+
+// Update issue status tracker
+e.github.UpdateIssueStatus(ctx, work.Project.Repo, work.Issue.Number, gh.StatusUpdate{
+ResearchLink: commentURL,
+})
 
 e.state.RecordComment(issueState.ID, state.PhaseResearch, 0, output, "dayshift")
 e.github.AddLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:researched")

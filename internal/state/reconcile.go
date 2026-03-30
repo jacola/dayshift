@@ -11,17 +11,16 @@ import (
 
 // labelToPhase maps dayshift labels to their corresponding phase.
 var labelToPhase = map[string]string{
-	"dayshift:researched":        PhaseResearch,
-	"dayshift:planned":           PhasePlan,
-	"dayshift:needs-input":       PhaseClarify,
-	"dayshift:awaiting-approval": PhaseApprove,
-	"dayshift:approved":          PhaseImplement,
-	"dayshift:implementing":      PhaseImplement,
-	"dayshift:implemented":       PhaseValidate,
-	"dayshift:validated":         PhaseComplete,
-	"dayshift:complete":          PhaseComplete,
-	"dayshift:error":             PhaseError,
-	"dayshift:paused":            PhasePaused,
+	"dayshift:researched":   PhaseResearch,
+	"dayshift:planned":      PhasePlan,
+	"dayshift:needs-input":  PhaseClarify,
+	"dayshift:approved":     PhaseImplement,
+	"dayshift:implementing": PhaseImplement,
+	"dayshift:implemented":  PhaseValidate,
+	"dayshift:validated":    PhaseComplete,
+	"dayshift:complete":     PhaseComplete,
+	"dayshift:error":        PhaseError,
+	"dayshift:paused":       PhasePaused,
 }
 
 // Reconcile synchronizes local SQLite state with GitHub label state.
@@ -93,7 +92,7 @@ func determinePhaseFromLabels(labels []string) string {
 	// Priority order: later phases take precedence
 	phaseOrder := []string{
 		PhasePaused, PhaseError, PhaseComplete, PhaseValidate,
-		PhaseImplement, PhaseApprove, PhaseClarify, PhasePlan, PhaseResearch,
+		PhaseImplement, PhaseClarify, PhasePlan, PhaseResearch,
 	}
 
 	labelPhases := make(map[string]bool)

@@ -2,10 +2,12 @@ package pipeline
 
 import (
 "context"
+"encoding/json"
 "fmt"
 
 "github.com/marcus/dayshift/internal/agents"
 "github.com/marcus/dayshift/internal/comments"
+gh "github.com/marcus/dayshift/internal/github"
 "github.com/marcus/dayshift/internal/scanner"
 "github.com/marcus/dayshift/internal/state"
 )
@@ -129,9 +131,9 @@ return fmt.Errorf("plan agent failed: %s", result.Error)
 }
 
 // Store updated session ID
+progress := getProgress(issueState.PhaseData)
 if result.SessionID != "" {
-phaseData := fmt.Sprintf(`{"session_id":"%s"}`, result.SessionID)
-e.state.SetPhaseData(issueState.ID, phaseData)
+progress.SessionID = result.SessionID
 }
 
 // Post or update the plan comment (edit in place if one already exists)
@@ -140,19 +142,34 @@ comments.MarkerPlan, comments.MarkerPlanEnd,
 cleanAgentOutput(result.Output),
 )
 
+var planURL string
 existingPlanComment, _ := e.github.FindCommentByMarker(ctx, work.Project.Repo, work.Issue.Number, comments.MarkerPlan)
 if existingPlanComment != nil && existingPlanComment.DatabaseID > 0 {
 if err := e.github.EditComment(ctx, work.Project.Repo, existingPlanComment.DatabaseID, commentBody); err != nil {
 return fmt.Errorf("edit plan comment: %w", err)
 }
+// Reconstruct comment URL from existing comment ID
+planURL = existingPlanComment.ID
 } else {
-if err := e.github.PostComment(ctx, work.Project.Repo, work.Issue.Number, commentBody); err != nil {
+url, err := e.github.PostComment(ctx, work.Project.Repo, work.Issue.Number, commentBody)
+if err != nil {
 return fmt.Errorf("post plan comment: %w", err)
 }
+planURL = url
 }
 
+// Update progress with plan URL
+progress.PlanURL = planURL
+data, _ := json.Marshal(progress)
+e.state.SetPhaseData(issueState.ID, string(data))
+
+// Update issue status tracker
+e.github.UpdateIssueStatus(ctx, work.Project.Repo, work.Issue.Number, gh.StatusUpdate{
+ResearchLink: progress.ResearchURL,
+PlanLink:     planURL,
+})
+
 e.state.RecordComment(issueState.ID, state.PhasePlan, 0, result.Output, "dayshift")
-e.state.SetPhaseData(issueState.ID, result.Output)
 
 // Check for questions
 hasQuestions := comments.HasMarker(result.Output, comments.MarkerQuestions)
@@ -166,10 +183,10 @@ e.logger.Infof("plan for %s#%d has questions — waiting for human input", work.
 } else {
 e.github.AddLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:planned")
 e.github.RemoveLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:needs-input")
-if err := e.state.TransitionPhase(issueState.ID, state.PhasePlan, state.PhaseApprove, "plan complete"); err != nil {
-return fmt.Errorf("transition to approve: %w", err)
+if err := e.state.TransitionPhase(issueState.ID, state.PhasePlan, state.PhaseImplement, "plan complete"); err != nil {
+return fmt.Errorf("transition to implement: %w", err)
 }
-e.logger.Infof("plan complete for %s#%d — awaiting approval", work.Project.Repo, work.Issue.Number)
+e.logger.Infof("plan complete for %s#%d — proceeding to implement", work.Project.Repo, work.Issue.Number)
 }
 
 return nil

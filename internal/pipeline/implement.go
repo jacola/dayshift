@@ -2,12 +2,14 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
 
 	"github.com/marcus/dayshift/internal/agents"
 	"github.com/marcus/dayshift/internal/comments"
+	gh "github.com/marcus/dayshift/internal/github"
 	"github.com/marcus/dayshift/internal/scanner"
 	"github.com/marcus/dayshift/internal/state"
 )
@@ -58,9 +60,9 @@ URL: https://github.com/%s/issues/%d
 }
 
 func (e *Executor) executeImplement(ctx context.Context, work scanner.PendingWork, issueState *state.IssueState) error {
-	// Transition to implement phase
-	if issueState.Phase == state.PhaseApprove {
-		if err := e.state.TransitionPhase(issueState.ID, state.PhaseApprove, state.PhaseImplement, "starting implementation"); err != nil {
+	// Transition to implement phase if coming from plan
+	if issueState.Phase == state.PhasePlan {
+		if err := e.state.TransitionPhase(issueState.ID, state.PhasePlan, state.PhaseImplement, "starting implementation"); err != nil {
 			return fmt.Errorf("transition to implement: %w", err)
 		}
 	}
@@ -108,17 +110,21 @@ func (e *Executor) executeImplement(ctx context.Context, work scanner.PendingWor
 		return fmt.Errorf("implement agent failed: %s", result.Error)
 	}
 
-	// Store session ID for validate phase
-	if result.SessionID != "" {
-		phaseData := fmt.Sprintf(`{"session_id":"%s"}`, result.SessionID)
-		e.state.SetPhaseData(issueState.ID, phaseData)
-	}
-
-	// Extract PR URL
+	// Extract PR URL and build PR reference
 	prURL := extractPRURL(result.Output)
 	if prURL != "" {
 		e.state.SetPRURL(issueState.ID, prURL)
 	}
+	prRef := extractPRRef(prURL)
+
+	// Update progress
+	progress := getProgress(issueState.PhaseData)
+	if result.SessionID != "" {
+		progress.SessionID = result.SessionID
+	}
+	progress.ImplementRef = prRef
+	data, _ := json.Marshal(progress)
+	e.state.SetPhaseData(issueState.ID, string(data))
 
 	// Post implementation summary
 	summary := fmt.Sprintf("## Implementation Complete\n\n%s", result.Output)
@@ -127,6 +133,13 @@ func (e *Executor) executeImplement(ctx context.Context, work scanner.PendingWor
 	}
 	e.github.PostComment(ctx, work.Project.Repo, work.Issue.Number, summary)
 	e.state.RecordComment(issueState.ID, state.PhaseImplement, 0, result.Output, "dayshift")
+
+	// Update issue status tracker
+	e.github.UpdateIssueStatus(ctx, work.Project.Repo, work.Issue.Number, gh.StatusUpdate{
+		ResearchLink: progress.ResearchURL,
+		PlanLink:     progress.PlanURL,
+		ImplementRef: prRef,
+	})
 
 	// Add label and transition
 	e.github.AddLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:implemented")

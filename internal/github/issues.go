@@ -109,16 +109,17 @@ func (c *Client) GetIssue(ctx context.Context, repo string, number int) (*Issue,
 	return &issue, nil
 }
 
-// PostComment posts a comment on an issue.
-func (c *Client) PostComment(ctx context.Context, repo string, number int, body string) error {
-	_, err := c.gh(ctx, repo,
+// PostComment posts a comment on an issue and returns the comment URL.
+func (c *Client) PostComment(ctx context.Context, repo string, number int, body string) (string, error) {
+	stdout, err := c.gh(ctx, repo,
 		"issue", "comment", strconv.Itoa(number),
 		"--body", body,
 	)
 	if err != nil {
-		return fmt.Errorf("post comment on #%d: %w", number, err)
+		return "", fmt.Errorf("post comment on #%d: %w", number, err)
 	}
-	return nil
+	// gh returns the comment URL
+	return strings.TrimSpace(stdout), nil
 }
 
 // GetComments retrieves all comments on an issue.
