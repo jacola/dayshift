@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os/exec"
 	"regexp"
 	"strings"
 
@@ -59,6 +60,9 @@ func NewExecutor(opts ...ExecutorOption) *Executor {
 func (e *Executor) ProcessIssue(ctx context.Context, work scanner.PendingWork) error {
 	e.logger.Infof("processing %s#%d → phase %s (reason: %s)",
 		work.Project.Repo, work.Issue.Number, work.NextPhase, work.Reason)
+
+	// Pull latest code before every phase
+	e.pullLatest(ctx, work.Project.Path)
 
 	// Ensure issue is tracked in state
 	issueState := work.IssueState
@@ -130,6 +134,15 @@ func cleanAgentOutput(output string) string {
 	}
 	// No heading found — return as-is
 	return output
+}
+
+// pullLatest fetches the latest code on the current branch.
+func (e *Executor) pullLatest(ctx context.Context, workDir string) {
+	cmd := exec.CommandContext(ctx, "git", "pull", "--ff-only")
+	cmd.Dir = workDir
+	if err := cmd.Run(); err != nil {
+		e.logger.Debugf("git pull in %s: %v (non-fatal)", workDir, err)
+	}
 }
 
 // IssueProgress tracks URLs/refs produced by each phase.
