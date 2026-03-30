@@ -43,6 +43,19 @@ URL: https://github.com/%s/issues/%d
 5. Do NOT switch branches after creating the PR — dayshift manages branch checkout.
 6. Output a summary of what was implemented.
 
+## PR Description Requirements
+The PR description MUST include these sections:
+- **Summary**: What was changed and why (reference the issue)
+- **Changes**: Bullet list of specific code changes made
+- **Manual Testing Steps**: Detailed step-by-step QA instructions so a reviewer can verify the fix works. Be specific — include exact actions to take, expected behavior before and after the fix, and edge cases to test. Write these for an engineer who may not have context on the issue.
+
+Example testing steps format:
+### Manual Testing Steps
+1. [Precondition setup if needed]
+2. [Exact action to perform]
+3. [Expected result]
+4. [Additional scenarios / edge cases]
+
 ## CRITICAL: Output Requirements
 - Output your implementation summary directly as your response text
 - The full content of your response will be posted as a GitHub comment on the issue`,
