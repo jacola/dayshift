@@ -204,13 +204,13 @@ func (s *Scanner) determineWork(ctx context.Context, ghIssue gh.Issue, localIssu
 		}
 
 	case state.PhaseImplement:
-		// Implementation was completed and transitioned here — run validate
+		// Issue is in implement phase — run the implementation
 		return &PendingWork{
 			Issue:      ghIssue,
 			Project:    project,
 			IssueState: localIssue,
-			NextPhase:  state.PhaseValidate,
-			Reason:     "implementation_complete",
+			NextPhase:  state.PhaseImplement,
+			Reason:     "ready_to_implement",
 		}
 
 	case state.PhaseValidate:

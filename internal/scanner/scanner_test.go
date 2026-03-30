@@ -88,7 +88,7 @@ func TestScanApprovedIssue(t *testing.T) {
 		},
 	}
 
-	// Issues in the plan phase with no questions go straight to implement
+	// Issue in implement phase should be picked up for implementation
 	mgr.UpsertIssue(&state.IssueState{
 		Repo: "owner/repo", IssueNumber: 1, Title: "Test", Phase: state.PhaseImplement,
 	})
@@ -106,8 +106,8 @@ func TestScanApprovedIssue(t *testing.T) {
 	if pending == nil {
 		t.Fatal("expected pending work for implement phase issue")
 	}
-	if pending.NextPhase != state.PhaseValidate {
-		t.Errorf("expected validate, got %s", pending.NextPhase)
+	if pending.NextPhase != state.PhaseImplement {
+		t.Errorf("expected implement, got %s", pending.NextPhase)
 	}
 }
 
