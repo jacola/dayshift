@@ -154,13 +154,19 @@ func (e *Executor) executeImplement(ctx context.Context, work scanner.PendingWor
 		ImplementRef: prRef,
 	})
 
-	// Add label and transition
-	e.github.AddLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:implemented")
-	if err := e.state.TransitionPhase(issueState.ID, state.PhaseImplement, state.PhaseValidate, "implementation complete"); err != nil {
-		return fmt.Errorf("transition to validate: %w", err)
+	// Add label and transition — only proceed to validate if a PR was created
+	if prURL != "" {
+		e.github.AddLabel(ctx, work.Project.Repo, work.Issue.Number, "dayshift:implemented")
+		if err := e.state.TransitionPhase(issueState.ID, state.PhaseImplement, state.PhaseValidate, "implementation complete"); err != nil {
+			return fmt.Errorf("transition to validate: %w", err)
+		}
+		e.logger.Infof("implementation complete for %s#%d (PR: %s)", work.Project.Repo, work.Issue.Number, prURL)
+	} else {
+		// Agent succeeded but no PR — treat as error
+		e.handlePhaseError(ctx, work, issueState, "implement", fmt.Errorf("agent completed but did not create a PR"))
+		return fmt.Errorf("implementation completed without creating a PR")
 	}
 
-	e.logger.Infof("implementation complete for %s#%d (PR: %s)", work.Project.Repo, work.Issue.Number, prURL)
 	return nil
 }
 
