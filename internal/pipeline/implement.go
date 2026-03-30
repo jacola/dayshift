@@ -15,7 +15,7 @@ import (
 )
 
 func buildImplementPrompt(issue scanner.PendingWork, research, plan, branch string) string {
-	return fmt.Sprintf(`You are an implementation agent. Implement the approved plan for this GitHub issue.
+	return fmt.Sprintf(`You are an implementation agent. Implement the plan for this GitHub issue.
 
 ## Issue
 Title: %s
@@ -29,7 +29,7 @@ URL: https://github.com/%s/issues/%d
 ## Research
 %s
 
-## Approved Plan
+## Plan
 %s
 
 ## Instructions

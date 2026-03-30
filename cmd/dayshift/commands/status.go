@@ -156,7 +156,6 @@ func formatPhase(phase string) string {
 		"research":  "🔍 research",
 		"plan":      "📝 plan",
 		"clarify":   "❓ clarify",
-		"approve":   "👀 approve",
 		"implement": "🔨 implement",
 		"validate":  "✅ validate",
 		"complete":  "🎉 complete",

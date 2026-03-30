@@ -82,7 +82,6 @@ func TestAllMarkersArePaired(t *testing.T) {
 		{MarkerResearch, MarkerResearchEnd},
 		{MarkerPlan, MarkerPlanEnd},
 		{MarkerQuestions, MarkerQuestionsEnd},
-		{MarkerApproval, MarkerApprovalEnd},
 		{MarkerValidation, MarkerValidationEnd},
 	}
 	for _, pair := range pairs {

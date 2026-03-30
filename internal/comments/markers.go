@@ -14,8 +14,6 @@ const (
 	MarkerPlanEnd       = "<!-- /dayshift:plan -->"
 	MarkerQuestions     = "<!-- dayshift:questions -->"
 	MarkerQuestionsEnd  = "<!-- /dayshift:questions -->"
-	MarkerApproval      = "<!-- dayshift:approval -->"
-	MarkerApprovalEnd   = "<!-- /dayshift:approval -->"
 	MarkerValidation    = "<!-- dayshift:validation -->"
 	MarkerValidationEnd = "<!-- /dayshift:validation -->"
 )

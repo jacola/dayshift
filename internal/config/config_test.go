@@ -37,9 +37,6 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Phases.Plan.MaxClarifyRounds != 3 {
 		t.Errorf("expected max_clarify_rounds=3, got %d", cfg.Phases.Plan.MaxClarifyRounds)
 	}
-	if cfg.Phases.Approve.AutoApprove {
-		t.Error("expected phases.approve.auto_approve=false")
-	}
 	if len(cfg.Provider.Preference) != 3 {
 		t.Errorf("expected 3 providers, got %d", len(cfg.Provider.Preference))
 	}
@@ -165,8 +162,6 @@ budget:
 phases:
   plan:
     max_clarify_rounds: 5
-  approve:
-    auto_approve: true
 
 logging:
   level: debug
@@ -196,9 +191,6 @@ logging:
 	}
 	if cfg.Phases.Plan.MaxClarifyRounds != 5 {
 		t.Errorf("expected max_clarify_rounds=5, got %d", cfg.Phases.Plan.MaxClarifyRounds)
-	}
-	if !cfg.Phases.Approve.AutoApprove {
-		t.Error("expected auto_approve=true")
 	}
 	if cfg.Logging.Level != "debug" {
 		t.Errorf("expected level=debug, got %s", cfg.Logging.Level)

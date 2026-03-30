@@ -199,7 +199,7 @@ Manage dayshift labels on GitHub repositories.
 
 ### `dayshift labels setup`
 
-Create all 13 dayshift labels on configured repositories. Labels that already exist are skipped.
+Create all dayshift labels on configured repositories. Labels that already exist are skipped.
 
 ```
 dayshift labels setup [flags]

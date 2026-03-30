@@ -14,7 +14,6 @@ var labelToPhase = map[string]string{
 	"dayshift:researched":   PhaseResearch,
 	"dayshift:planned":      PhasePlan,
 	"dayshift:needs-input":  PhaseClarify,
-	"dayshift:approved":     PhaseImplement,
 	"dayshift:implementing": PhaseImplement,
 	"dayshift:implemented":  PhaseValidate,
 	"dayshift:validated":    PhaseComplete,
@@ -114,8 +113,6 @@ func determinePhaseFromLabels(labels []string) string {
 // isHumanInitiated returns true if the phase is typically set by humans.
 func isHumanInitiated(phase string) bool {
 	switch phase {
-	case PhaseImplement: // from dayshift:approved label
-		return true
 	case PhasePaused:
 		return true
 	case PhasePending: // from removing all labels (restart)

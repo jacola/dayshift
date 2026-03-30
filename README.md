@@ -2,13 +2,13 @@
 
 **It turns your issues into PRs, one phase at a time.**
 
-Dayshift is an issue-driven AI agent pipeline that processes GitHub issues through structured phases — Research, Plan, Approve, Implement, and Validate — with human-in-the-loop checkpoints between them.
+Dayshift is an issue-driven AI agent pipeline that processes GitHub issues through structured phases — Research, Plan, Implement, and Validate — with human-in-the-loop checkpoints between them.
 
 Inspired by [nightshift](https://github.com/marcus/nightshift), which runs AI coding agents autonomously overnight. While nightshift works while you sleep, dayshift works while you're awake — pausing for your input and resuming when you respond.
 
 ## Overview
 
-Add a `dayshift` label to any GitHub issue. Dayshift picks it up, researches your codebase, drafts an implementation plan, asks clarifying questions if needed, waits for your approval, implements the change, validates the result, and opens a PR — all tracked through labels and comments on the issue itself.
+Add a `dayshift` label to any GitHub issue. Dayshift picks it up, researches your codebase, drafts an implementation plan, asks clarifying questions if needed, implements the change, validates the result, and opens a PR — all tracked through labels and comments on the issue itself.
 
 ```mermaid
 flowchart TD
@@ -16,33 +16,29 @@ flowchart TD
     B --> C[Plan]
     C -->|"has questions"| D[Clarify]
     D -->|"human answers"| C
-    C -->|"no questions"| E[Approve]
-    E -->|"human adds label"| F[Implement]
-    F --> G[Validate]
-    G -->|"passed"| H[Complete]
-    G -->|"needs fixes"| F
+    C -->|"no questions"| E[Implement]
+    E --> F[Validate]
+    F -->|"passed"| G[Complete]
+    F -->|"needs fixes"| E
 
     B -->|error| ERR[Error]
     C -->|error| ERR
     E -->|error| ERR
     F -->|error| ERR
-    G -->|error| ERR
 
     B -.->|"human pauses"| P[Paused]
     C -.->|"human pauses"| P
     E -.->|"human pauses"| P
     F -.->|"human pauses"| P
-    G -.->|"human pauses"| P
     P -.->|"human resumes"| A
 
     style A fill:#f9f9f9,stroke:#999
     style B fill:#1d76db,color:#fff
     style C fill:#1d76db,color:#fff
     style D fill:#fbca04,color:#333
-    style E fill:#fbca04,color:#333
-    style F fill:#d93f0b,color:#fff
-    style G fill:#1d76db,color:#fff
-    style H fill:#0e8a16,color:#fff
+    style E fill:#d93f0b,color:#fff
+    style F fill:#1d76db,color:#fff
+    style G fill:#0e8a16,color:#fff
     style ERR fill:#b60205,color:#fff
     style P fill:#c5def5,color:#333
 ```
@@ -81,7 +77,7 @@ flowchart LR
 
 - **Multi-project** — monitor multiple repositories from a single config
 - **Session resume** — Copilot sessions persist across phases so the agent retains context
-- **Human-in-the-loop** — the pipeline pauses at clarify and approve checkpoints, resuming when you respond
+- **Human-in-the-loop** — the pipeline pauses at clarify checkpoints, resuming when you respond
 - **Labels as state machine** — every phase transition is visible on the issue as a label change
 - **Edit-in-place comments** — plan updates edit the existing comment instead of posting new ones
 - **Multiple AI providers** — supports Claude, Codex, and Copilot with configurable preference order
@@ -126,7 +122,7 @@ dayshift run
 | `dayshift daemon start` | Start the background polling daemon. `--foreground` to stay attached. |
 | `dayshift daemon stop` | Stop the daemon (SIGTERM, then SIGKILL after 10s). |
 | `dayshift daemon status` | Check whether the daemon is running. |
-| `dayshift labels setup` | Create all 13 dayshift labels on configured repos. `--repo` to target one. |
+| `dayshift labels setup` | Create all dayshift labels on configured repos. `--repo` to target one. |
 | `dayshift init` | Generate `~/.config/dayshift/config.yaml`. `--force` to overwrite. |
 
 See [docs/cli-reference.md](docs/cli-reference.md) for the full reference with all flags and examples.
@@ -170,9 +166,6 @@ phases:
   plan:
     enabled: true
     max_clarify_rounds: 3
-  approve:
-    enabled: true
-    auto_approve: false
   implement:
     enabled: true
   validate:
@@ -194,21 +187,17 @@ The AI agent reads the issue and researches the relevant parts of your codebase.
 
 ### Phase 2: Plan
 
-Using the research output, the agent drafts an implementation plan. If it has questions, they're posted as checkboxes in a `<!-- dayshift:questions -->` section and the issue moves to **Clarify**. If no questions, the plan is posted (or edited in-place if updating) and the issue moves to **Approve**.
+Using the research output, the agent drafts an implementation plan. If it has questions, they're posted as checkboxes in a `<!-- dayshift:questions -->` section and the issue moves to **Clarify**. If no questions, the plan is posted (or edited in-place if updating) and the issue moves to **Implement**.
 
 ### Phase 2a: Clarify
 
 The pipeline pauses. You answer by checking boxes or replying with a comment. On the next scan, dayshift detects your response and re-runs the plan phase with your answers folded in. This loops up to `max_clarify_rounds` times (default: 3).
 
-### Phase 3: Approve
-
-A comment is posted asking you to review the plan. Add the `dayshift:approved` label when you're ready. If `auto_approve` is enabled, this step is skipped.
-
-### Phase 4: Implement
+### Phase 3: Implement
 
 The agent creates a branch, implements the plan, and opens a pull request with `Fixes #N` in the description. The PR URL is stored in the database for the next phase.
 
-### Phase 5: Validate
+### Phase 4: Validate
 
 The agent reviews the PR against the original issue and plan. If validation passes, the issue is marked `dayshift:complete`. If it fails, `dayshift:needs-fixes` is added and the issue can cycle back through implementation.
 
@@ -218,7 +207,7 @@ If any phase fails, the `dayshift:error` label is added and a comment with the e
 
 ## Label Protocol
 
-Dayshift uses 13 labels to track state. Run `dayshift labels setup` to create them.
+Dayshift uses 11 labels to track state. Run `dayshift labels setup` to create them.
 
 | Label | Color | Meaning | Set By |
 |---|---|---|---|
@@ -226,8 +215,6 @@ Dayshift uses 13 labels to track state. Run `dayshift labels setup` to create th
 | `dayshift:researched` | 🔵 blue | Research phase complete | Agent |
 | `dayshift:planned` | 🔵 blue | Plan phase complete | Agent |
 | `dayshift:needs-input` | 🟡 yellow | Agent posted questions, waiting for answers | Agent |
-| `dayshift:awaiting-approval` | 🟡 yellow | Plan ready for human review | Agent |
-| `dayshift:approved` | 🟢 green | Human approved the plan | Human |
 | `dayshift:implementing` | 🟠 orange | Implementation in progress | Agent |
 | `dayshift:implemented` | 🔵 blue | Implementation complete, PR opened | Agent |
 | `dayshift:validated` | 🟢 green | Validation passed | Agent |
@@ -249,7 +236,7 @@ internal/
   db/                  SQLite database (WAL mode, migrations, schema)
   github/              GitHub operations via gh CLI (issues, comments, labels)
   logging/             Structured logging via zerolog (daily rotation, 7-day retention)
-  pipeline/            Phase executors (research, plan, approve, implement, validate)
+  pipeline/            Phase executors (research, plan, implement, validate)
   scanner/             Polls GitHub for issues needing work, determines next phase
   state/               Issue state machine, phase transitions, reconciliation with GitHub
 ```

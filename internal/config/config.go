@@ -73,7 +73,6 @@ type BudgetConfig struct {
 type PhasesConfig struct {
 	Research  PhaseConfig `mapstructure:"research"`
 	Plan      PhaseConfig `mapstructure:"plan"`
-	Approve   PhaseConfig `mapstructure:"approve"`
 	Implement PhaseConfig `mapstructure:"implement"`
 	Validate  PhaseConfig `mapstructure:"validate"`
 }
@@ -82,7 +81,6 @@ type PhasesConfig struct {
 type PhaseConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
 	MaxClarifyRounds int  `mapstructure:"max_clarify_rounds"`
-	AutoApprove      bool `mapstructure:"auto_approve"`
 }
 
 // LoggingConfig controls log output.
@@ -243,8 +241,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("phases.research.enabled", true)
 	v.SetDefault("phases.plan.enabled", true)
 	v.SetDefault("phases.plan.max_clarify_rounds", 3)
-	v.SetDefault("phases.approve.enabled", true)
-	v.SetDefault("phases.approve.auto_approve", false)
 	v.SetDefault("phases.implement.enabled", true)
 	v.SetDefault("phases.validate.enabled", true)
 

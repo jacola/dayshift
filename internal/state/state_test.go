@@ -296,7 +296,7 @@ func TestDeterminePhaseFromLabels(t *testing.T) {
 		{[]string{"dayshift"}, ""},
 		{[]string{"dayshift", "dayshift:researched"}, PhaseResearch},
 		{[]string{"dayshift", "dayshift:planned", "dayshift:needs-input"}, PhaseClarify},
-		{[]string{"dayshift", "dayshift:approved"}, PhaseImplement},
+		{[]string{"dayshift", "dayshift:implementing"}, PhaseImplement},
 		{[]string{"dayshift", "dayshift:paused"}, PhasePaused},
 		{[]string{"dayshift", "dayshift:complete"}, PhaseComplete},
 	}

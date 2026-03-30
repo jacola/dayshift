@@ -68,10 +68,6 @@ phases:
     enabled: true               # Set to false to skip planning
     max_clarify_rounds: 3       # Max question/answer loops before escalating (≥ 0)
 
-  approve:
-    enabled: true               # Set to false to skip approval
-    auto_approve: false          # Set to true to skip human approval entirely
-
   implement:
     enabled: true               # Set to false to skip implementation
 
@@ -172,7 +168,6 @@ Each phase can be individually configured. Disabling a phase skips it in the pip
 |---|---|---|---|---|
 | `enabled` | bool | All phases | `true` | Whether the phase executes. |
 | `max_clarify_rounds` | int | `plan` only | `3` | Maximum question/answer loops before the pipeline stops asking. Must be ≥ 0. |
-| `auto_approve` | bool | `approve` only | `false` | When `true`, skips human approval and proceeds directly to implementation. |
 
 ### Logging
 

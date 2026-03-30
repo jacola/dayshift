@@ -82,7 +82,7 @@ func generateDefaultConfig() string {
 # Location: ~/.config/dayshift/config.yaml
 #
 # Dayshift processes GitHub issues through a structured pipeline:
-# Research → Plan → Approve → Implement → Validate
+# Research → Plan → Implement → Validate
 #
 # It pauses for human input when needed and resumes autonomously
 # when humans respond via issue comments and labels.
@@ -134,11 +134,8 @@ phases:
   plan:
     enabled: true                # Create an implementation plan
     max_clarify_rounds: 3        # Max Q&A iterations before escalating
-  approve:
-    enabled: true                # Require human approval before implementing
-    auto_approve: false          # Set true to skip human approval
   implement:
-    enabled: true                # Implement the approved plan
+    enabled: true                # Implement the plan
   validate:
     enabled: true                # Validate implementation against plan
 
